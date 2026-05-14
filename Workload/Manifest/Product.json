@@ -19,11 +19,12 @@
         }
       ],
       "newSection": {
-        "customActions": [
-        ]},
-        "recommendedItemTypes": [
-          "HelloWorld"
-        ]
+        "customActions": []
+      },
+      "recommendedItemTypes": [
+        "HelloWorld",
+        "Connector"
+      ]
     },
     "createExperience": {
       "description": "Workload_Description",
@@ -48,11 +49,32 @@
             "onCreationFailure": { "action": "item.onCreationFailure" },
             "onCreationSuccess": { "action": "item.onCreationSuccess" }
           }
+        },
+        {
+          "title": "ConnectorItem_DisplayName",
+          "description": "ConnectorItem_Description",
+          "icon": {
+            "name": "assets/images/ConnectorItem_Icon.png"
+          },
+          "icon_small": {
+            "name": "assets/images/ConnectorItem_Icon.png"
+          },
+          "availableIn": [
+            "home",
+            "create-hub",
+            "workspace-plus-new",
+            "workspace-plus-new-teams"
+          ],
+          "itemType": "Connector",
+          "createItemDialogConfig": {
+            "onCreationFailure": { "action": "item.onCreationFailure" },
+            "onCreationSuccess": { "action": "item.onCreationSuccess" }
+          }
         }
       ]
     },
     "productDetail": {
-      "publisher": "Name of publisher",
+      "publisher": "Agic Technology srl",
       "slogan": "Workload_Hub_Slogan",
       "description": "Workload_Hub_Description",
       "image": {
@@ -69,15 +91,15 @@
           "source": "assets/images/Workload_Hub_SlideMedia_1.png"
         }
       ],
-        "supportLink": {
-          "documentation": {"url": "https://example.com/documentation"},
-          "certification": {"url": "https://example.com/certification"},
-          "help": {"url": "https://example.com/help"},
-          "privacy": {"url": "https://example.com/privacy"},
-          "terms": {"url": "https://example.com/terms"},
-          "license": {"url": "https://azuremarketplace.microsoft.com"} 
+      "supportLink": {
+        "documentation": {"url": "https://example.com/documentation"},
+        "certification": {"url": "https://example.com/certification"},
+        "help": {"url": "https://example.com/help"},
+        "privacy": {"url": "https://example.com/privacy"},
+        "terms": {"url": "https://example.com/terms"},
+        "license": {"url": "https://azuremarketplace.microsoft.com"}
       }
     },
-    "itemJobTypes" :["storeData", "others"],
-    "compatibleItemTypes" : ["Lakehouse"]
+    "itemJobTypes": ["storeData", "others"],
+    "compatibleItemTypes": ["Lakehouse"]
 }

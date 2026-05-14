@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "agic-fabric-connector"
+version = "1.0.0"
+description = "Fabric Universal Connector ingestion runtime"
+authors = [{name = "Agic Technology srl", email = "support@agic.technology"}]
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+dependencies = [
+    "msal>=1.26",
+    "requests>=2.31",
+    "pandas>=2.0",
+    "delta-spark>=3.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov",
+    "pytest-mock",
+    "ruff",
+    "mypy",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agic_fabric_connector*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true

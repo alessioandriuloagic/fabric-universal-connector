@@ -1,0 +1,758 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://agic.technology/schemas/fabric-universal-connector/connector-item-definition/v1.0.0",
+  "title": "ConnectorItemDefinition",
+  "description": "JSON Schema for the Fabric Universal Connector item definition stored in payload.json (Base64-encoded). Version 1.0.0.",
+  "type": "object",
+  "required": ["schemaVersion", "moduleType", "state"],
+  "additionalProperties": false,
+
+  "$defs": {
+
+    "FabricItemId": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "description": "Fabric platform item UUID"
+    },
+
+    "Iso8601DateTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC datetime string (e.g. 2026-05-14T12:00:00Z)"
+    },
+
+    "ModuleType": {
+      "type": "string",
+      "enum": ["crm", "businesscentral", "sql"],
+      "description": "Identifies the source system module. Determines which runtime connector and Bronze schema to use."
+    },
+
+    "ConnectorState": {
+      "type": "string",
+      "enum": ["empty", "configured", "error", "paused"],
+      "description": "Lifecycle state of the ConnectorItem. 'empty' = wizard not completed. 'configured' = fully activated. 'error' = last activation failed. 'paused' = schedule disabled."
+    },
+
+    "AuthMode": {
+      "type": "string",
+      "enum": ["fabric_connection", "keyvault_reference", "service_principal"],
+      "description": "Authentication strategy for connecting to the source system."
+    },
+
+    "SchemaEvolutionPolicy": {
+      "type": "string",
+      "enum": ["merge", "strict", "overwrite"],
+      "description": "Controls runtime behavior when source schema changes are detected. 'merge' = add new columns (default). 'strict' = fail run. 'overwrite' = rebuild table (destroys history)."
+    },
+
+    "ExtractionMode": {
+      "type": "string",
+      "enum": ["incremental", "full"],
+      "description": "Incremental uses watermark/delta-token for change tracking. Full re-extracts all records each run (expensive — avoid in production)."
+    },
+
+    "CrmSourceConfiguration": {
+      "type": "object",
+      "description": "Source configuration for Microsoft Dataverse / Dynamics 365 CRM.",
+      "required": ["environmentUrl", "tenantId"],
+      "additionalProperties": false,
+      "properties": {
+        "environmentUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Dataverse environment URL (e.g. https://org.crm4.dynamics.com)."
+        },
+        "tenantId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "Entra ID tenant ID that hosts the Dataverse environment."
+        },
+        "apiVersion": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+$",
+          "default": "v9.2",
+          "description": "Dataverse Web API version. Default: v9.2."
+        },
+        "enableChangeTracking": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use OData delta tokens for incremental extraction. Requires Change Tracking enabled on each entity in Dataverse admin."
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 1000,
+          "description": "Number of records per OData page request. Dataverse max is 5000."
+        }
+      }
+    },
+
+    "BusinessCentralSourceConfiguration": {
+      "type": "object",
+      "description": "Source configuration for Microsoft Dynamics 365 Business Central.",
+      "required": ["tenantId", "environment"],
+      "additionalProperties": false,
+      "properties": {
+        "tenantId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "Entra ID tenant ID that hosts the BC environment."
+        },
+        "environment": {
+          "type": "string",
+          "minLength": 1,
+          "description": "BC environment name (e.g. 'Production', 'Sandbox')."
+        },
+        "companyId": {
+          "type": "string",
+          "description": "BC Company ID (UUID or name). If null, extracts from all companies."
+        },
+        "apiVersion": {
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+$",
+          "default": "v2.0",
+          "description": "BC REST API version. Default: v2.0."
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 1000,
+          "default": 200,
+          "description": "Number of records per OData page request."
+        }
+      }
+    },
+
+    "SqlSourceConfiguration": {
+      "type": "object",
+      "description": "Source configuration for SQL Server or Azure SQL.",
+      "required": ["server", "database"],
+      "additionalProperties": false,
+      "properties": {
+        "server": {
+          "type": "string",
+          "minLength": 1,
+          "description": "SQL Server hostname or Azure SQL FQDN (e.g. server.database.windows.net)."
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Target database name."
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 1433,
+          "description": "TCP port. Default: 1433."
+        },
+        "driver": {
+          "type": "string",
+          "enum": ["sqlserver", "azuresql"],
+          "default": "sqlserver",
+          "description": "JDBC driver variant. 'azuresql' enables MSI authentication."
+        },
+        "encrypt": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enforce TLS/SSL on JDBC connection."
+        },
+        "trustServerCertificate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Trust self-signed server certificates. Set true only for dev/test on-premises SQL."
+        },
+        "queryTimeout": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3600,
+          "default": 300,
+          "description": "JDBC query timeout in seconds."
+        },
+        "fetchSize": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 100000,
+          "default": 10000,
+          "description": "JDBC fetch size (rows per network round-trip)."
+        }
+      }
+    },
+
+    "FabricConnectionAuth": {
+      "type": "object",
+      "description": "Authenticate via a Fabric Connection managed by the Fabric platform. The connection stores credentials; only the connection UUID is stored in the item definition.",
+      "required": ["mode", "fabricConnectionId"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "const": "fabric_connection" },
+        "fabricConnectionId": {
+          "$ref": "#/$defs/FabricItemId",
+          "description": "UUID of the Fabric Connection that holds source credentials."
+        }
+      }
+    },
+
+    "KeyVaultReferenceAuth": {
+      "type": "object",
+      "description": "Authenticate by resolving a secret from Azure Key Vault at runtime. The notebook resolves the secret using its MSI identity.",
+      "required": ["mode", "keyVaultUri", "clientSecretName"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "const": "keyvault_reference" },
+        "keyVaultUri": {
+          "type": "string",
+          "format": "uri",
+          "description": "Azure Key Vault URI (e.g. https://myvault.vault.azure.net/)."
+        },
+        "clientIdSecretName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key Vault secret name containing the OAuth client ID (if not using fabricConnectionId)."
+        },
+        "clientSecretName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key Vault secret name containing the OAuth client secret or password."
+        },
+        "tenantIdSecretName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key Vault secret name containing the Entra ID tenant ID for this source."
+        }
+      }
+    },
+
+    "ServicePrincipalAuth": {
+      "type": "object",
+      "description": "Authenticate via service principal. Client ID and tenant are stored in the item definition. The client secret is NEVER stored here — it must always reference a Fabric Connection or Key Vault secret.",
+      "required": ["mode", "tenantId", "clientId", "secretRef"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "type": "string", "const": "service_principal" },
+        "tenantId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "Entra ID tenant ID for this service principal."
+        },
+        "clientId": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "Application (client) ID of the service principal."
+        },
+        "secretRef": {
+          "oneOf": [
+            { "$ref": "#/$defs/FabricConnectionAuth" },
+            { "$ref": "#/$defs/KeyVaultReferenceAuth" }
+          ],
+          "description": "Reference to where the client secret is stored. NEVER store the raw secret value here."
+        }
+      }
+    },
+
+    "AuthConfiguration": {
+      "description": "Authentication configuration for connecting to the source system. The active variant is determined by the 'mode' discriminator.",
+      "oneOf": [
+        { "$ref": "#/$defs/FabricConnectionAuth" },
+        { "$ref": "#/$defs/KeyVaultReferenceAuth" },
+        { "$ref": "#/$defs/ServicePrincipalAuth" }
+      ]
+    },
+
+    "CrmEntityConfiguration": {
+      "type": "object",
+      "description": "Entity configuration for a single Dataverse entity.",
+      "required": ["logicalName", "displayName", "enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "logicalName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Dataverse entity logical name (e.g. 'contact', 'msdynmkt_marketingform')."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable display name shown in the UI."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "If false, this entity is skipped during ingestion runs."
+        },
+        "extractionMode": {
+          "$ref": "#/$defs/ExtractionMode",
+          "default": "incremental"
+        },
+        "selectColumns": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "OData $select fields. If empty, all columns are extracted."
+        },
+        "expandRelationships": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "OData $expand navigation properties to include."
+        },
+        "filterExpression": {
+          "type": "string",
+          "description": "Additional OData $filter expression appended to the extraction query."
+        },
+        "batchSize": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 1000,
+          "description": "Records per OData page for this entity. Overrides source-level pageSize."
+        }
+      }
+    },
+
+    "BusinessCentralEntityConfiguration": {
+      "type": "object",
+      "description": "Entity configuration for a single Business Central API entity.",
+      "required": ["apiEndpoint", "displayName", "enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "apiEndpoint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "BC API endpoint segment (e.g. 'customers', 'salesOrders')."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "extractionMode": {
+          "$ref": "#/$defs/ExtractionMode",
+          "default": "incremental"
+        },
+        "watermarkColumn": {
+          "type": "string",
+          "default": "lastModifiedDateTime",
+          "description": "ISO datetime column used for incremental watermark filtering."
+        },
+        "selectColumns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "OData $select fields. If empty, all columns extracted."
+        },
+        "filterExpression": {
+          "type": "string",
+          "description": "Additional OData $filter expression for this entity."
+        },
+        "batchSize": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 1000,
+          "default": 200
+        }
+      }
+    },
+
+    "SqlEntityConfiguration": {
+      "type": "object",
+      "description": "Entity configuration for a single SQL table or view.",
+      "required": ["schema", "tableName", "displayName", "enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "description": "SQL schema name (e.g. 'dbo', 'sales')."
+        },
+        "tableName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Table or view name."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "extractionMode": {
+          "$ref": "#/$defs/ExtractionMode",
+          "default": "incremental"
+        },
+        "watermarkColumn": {
+          "type": "string",
+          "description": "Column used for incremental watermark (e.g. 'ModifiedAt', 'RowVersion'). Required if extractionMode = 'incremental'."
+        },
+        "watermarkColumnType": {
+          "type": "string",
+          "enum": ["datetime", "rowversion", "integer"],
+          "description": "Data type of the watermark column. Determines comparison operator used in WHERE clause."
+        },
+        "selectColumns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Columns to extract. If empty, SELECT * is used."
+        },
+        "whereClause": {
+          "type": "string",
+          "description": "Additional WHERE predicate (without WHERE keyword). Appended with AND to the watermark filter."
+        },
+        "primaryKeys": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Primary key columns. Used for upsert logic in future Silver layer."
+        },
+        "fetchSize": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 100000,
+          "default": 10000,
+          "description": "JDBC fetch size override for this table."
+        }
+      }
+    },
+
+    "StorageConfiguration": {
+      "type": "object",
+      "description": "Target Bronze Lakehouse storage configuration.",
+      "required": ["bronzeLakeHouseName"],
+      "additionalProperties": false,
+      "properties": {
+        "bronzeLakeHouseId": {
+          "$ref": "#/$defs/FabricItemId",
+          "description": "Fabric Lakehouse item ID. Null before activation; populated by the Activate handler."
+        },
+        "bronzeLakeHouseName": {
+          "type": "string",
+          "minLength": 1,
+          "default": "FabricUniversalConnector-Bronze",
+          "description": "Lakehouse display name. Used to create the Lakehouse if it does not exist."
+        },
+        "schemaEvolutionPolicy": {
+          "$ref": "#/$defs/SchemaEvolutionPolicy",
+          "default": "merge",
+          "description": "Global schema evolution policy. Can be overridden per entity in Phase 2."
+        },
+        "retentionDays": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional Delta Lake table retention in days. If null, Fabric default retention applies."
+        },
+        "useExistingLakehouse": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, bronzeLakeHouseId must point to an existing Lakehouse. The workload will not create a new one."
+        }
+      }
+    },
+
+    "SchedulingConfiguration": {
+      "type": "object",
+      "description": "Fabric Job Scheduler configuration for automated ingestion runs.",
+      "required": ["scheduleType", "enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "scheduleType": {
+          "type": "string",
+          "enum": ["cron", "interval"],
+          "description": "'cron' for full cron expression. 'interval' for simple recurrence in minutes."
+        },
+        "cronExpression": {
+          "type": "string",
+          "description": "Standard 5-field cron expression (min hour dom month dow). Required if scheduleType = 'cron'. Example: '0 2 * * *' (daily at 02:00)."
+        },
+        "intervalMinutes": {
+          "type": "integer",
+          "minimum": 15,
+          "maximum": 10080,
+          "description": "Recurrence interval in minutes. Required if scheduleType = 'interval'. Minimum 15 minutes."
+        },
+        "timezone": {
+          "type": "string",
+          "default": "UTC",
+          "description": "IANA timezone name (e.g. 'Europe/Rome', 'America/New_York'). Used to interpret the cron expression."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "If false, the schedule is registered but disabled (paused state)."
+        },
+        "startDate": {
+          "$ref": "#/$defs/Iso8601DateTime",
+          "description": "Schedule effective start datetime. If null, schedule activates immediately."
+        }
+      }
+    },
+
+    "FeaturesConfiguration": {
+      "type": "object",
+      "description": "Feature flags controlling runtime behavior. All defaults reflect production-safe settings.",
+      "additionalProperties": false,
+      "properties": {
+        "schemaEvolutionHandling": {
+          "$ref": "#/$defs/SchemaEvolutionPolicy",
+          "default": "merge",
+          "description": "Controls what happens when the source entity schema changes between runs."
+        },
+        "errorThresholdPercent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 25,
+          "description": "Percentage of entities that may fail before the entire run is aborted. 0 = fail immediately on first error. 100 = always attempt all entities."
+        },
+        "enablePartialRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, a failed entity does not stop other entities from processing (up to errorThresholdPercent)."
+        },
+        "enableTelemetry": {
+          "type": "boolean",
+          "default": true,
+          "description": "Anonymous opt-in telemetry. Reports run success/failure counts and wheel version to ISV Application Insights. No customer data is transmitted."
+        },
+        "maxRecordsPerEntityPerRun": {
+          "type": "integer",
+          "minimum": 1000,
+          "description": "Optional cap on records extracted per entity per run. Useful for initial-load throttling. If null, no cap."
+        },
+        "enableDeltaLakeOptimize": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run OPTIMIZE + VACUUM after each write. Improves query performance at the cost of longer run time."
+        }
+      }
+    },
+
+    "RuntimeConfiguration": {
+      "type": "object",
+      "description": "Runtime state populated by the Activate handler. Not set by the wizard. Treated as read-only by the UI after activation.",
+      "additionalProperties": false,
+      "properties": {
+        "notebookItemId": {
+          "$ref": "#/$defs/FabricItemId",
+          "description": "Fabric Notebook item ID deployed to the customer workspace."
+        },
+        "bronzeLakeHouseId": {
+          "$ref": "#/$defs/FabricItemId",
+          "description": "Resolved Fabric Lakehouse item ID (created or referenced at activation)."
+        },
+        "deployedAt": {
+          "$ref": "#/$defs/Iso8601DateTime",
+          "description": "ISO 8601 UTC datetime of the Activate operation."
+        },
+        "wheelVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Python wheel version pinned at activation time (e.g. '1.0.0')."
+        },
+        "configSchemaVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Version of this JSON Schema that was current when the config was written."
+        },
+        "jobScheduleId": {
+          "type": "string",
+          "description": "Fabric Job Scheduler schedule ID returned by createItemSchedule."
+        }
+      }
+    },
+
+    "ConnectorMetadata": {
+      "type": "object",
+      "description": "User-facing metadata for display and auditing. Not used by the runtime.",
+      "additionalProperties": false,
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "User-assigned name for this connector instance (shown in dashboard header)."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional free-text description."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 50 },
+          "maxItems": 10,
+          "description": "Optional tags for filtering/grouping in workspace views."
+        },
+        "createdAt": {
+          "$ref": "#/$defs/Iso8601DateTime",
+          "description": "ISO 8601 UTC datetime when the ConnectorItem was first created."
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/Iso8601DateTime",
+          "description": "ISO 8601 UTC datetime of the last configuration save."
+        },
+        "activatedAt": {
+          "$ref": "#/$defs/Iso8601DateTime",
+          "description": "ISO 8601 UTC datetime of the last successful Activate operation."
+        }
+      }
+    }
+
+  },
+
+  "properties": {
+
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Version of this schema. Must be '1.0.0' for this release. Used by the Python wheel to select the correct deserializer."
+    },
+
+    "moduleType": {
+      "$ref": "#/$defs/ModuleType"
+    },
+
+    "state": {
+      "$ref": "#/$defs/ConnectorState"
+    },
+
+    "authentication": {
+      "$ref": "#/$defs/AuthConfiguration",
+      "description": "Authentication configuration for the source system."
+    },
+
+    "storage": {
+      "$ref": "#/$defs/StorageConfiguration"
+    },
+
+    "scheduling": {
+      "$ref": "#/$defs/SchedulingConfiguration"
+    },
+
+    "features": {
+      "$ref": "#/$defs/FeaturesConfiguration"
+    },
+
+    "runtime": {
+      "$ref": "#/$defs/RuntimeConfiguration"
+    },
+
+    "metadata": {
+      "$ref": "#/$defs/ConnectorMetadata"
+    }
+
+  },
+
+  "oneOf": [
+    {
+      "description": "CRM / Dataverse module variant",
+      "required": ["source", "entities"],
+      "properties": {
+        "moduleType": { "const": "crm" },
+        "source": { "$ref": "#/$defs/CrmSourceConfiguration" },
+        "entities": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/CrmEntityConfiguration" },
+          "description": "Dataverse entities to ingest. At least one must be enabled."
+        }
+      }
+    },
+    {
+      "description": "Business Central module variant",
+      "required": ["source", "entities"],
+      "properties": {
+        "moduleType": { "const": "businesscentral" },
+        "source": { "$ref": "#/$defs/BusinessCentralSourceConfiguration" },
+        "entities": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/BusinessCentralEntityConfiguration" },
+          "description": "BC API entities to ingest. At least one must be enabled."
+        }
+      }
+    },
+    {
+      "description": "SQL Server / Azure SQL module variant",
+      "required": ["source", "entities"],
+      "properties": {
+        "moduleType": { "const": "sql" },
+        "source": { "$ref": "#/$defs/SqlSourceConfiguration" },
+        "entities": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/SqlEntityConfiguration" },
+          "description": "SQL tables or views to ingest. At least one must be enabled."
+        }
+      }
+    }
+  ],
+
+  "examples": [
+    {
+      "schemaVersion": "1.0.0",
+      "moduleType": "crm",
+      "state": "configured",
+      "source": {
+        "environmentUrl": "https://contoso.crm4.dynamics.com",
+        "tenantId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "apiVersion": "v9.2",
+        "enableChangeTracking": true,
+        "pageSize": 1000
+      },
+      "authentication": {
+        "mode": "service_principal",
+        "tenantId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        "clientId": "11111111-2222-3333-4444-555555555555",
+        "secretRef": {
+          "mode": "fabric_connection",
+          "fabricConnectionId": "66666666-7777-8888-9999-aaaaaaaaaaaa"
+        }
+      },
+      "entities": [
+        {
+          "logicalName": "contact",
+          "displayName": "Contact",
+          "enabled": true,
+          "extractionMode": "incremental",
+          "batchSize": 1000
+        },
+        {
+          "logicalName": "msdynmkt_marketingform",
+          "displayName": "Marketing Form",
+          "enabled": true,
+          "extractionMode": "incremental",
+          "batchSize": 500
+        }
+      ],
+      "storage": {
+        "bronzeLakeHouseId": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+        "bronzeLakeHouseName": "FabricUniversalConnector-Bronze",
+        "schemaEvolutionPolicy": "merge"
+      },
+      "scheduling": {
+        "scheduleType": "cron",
+        "cronExpression": "0 2 * * *",
+        "timezone": "Europe/Rome",
+        "enabled": true
+      },
+      "features": {
+        "schemaEvolutionHandling": "merge",
+        "errorThresholdPercent": 25,
+        "enablePartialRun": true,
+        "enableTelemetry": true
+      },
+      "runtime": {
+        "notebookItemId": "cccccccc-dddd-eeee-ffff-000000000000",
+        "bronzeLakeHouseId": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+        "deployedAt": "2026-05-14T10:00:00Z",
+        "wheelVersion": "1.0.0",
+        "configSchemaVersion": "1.0.0"
+      },
+      "metadata": {
+        "displayName": "Contoso CRM Connector",
+        "description": "Marketing Cloud entities from Contoso Dataverse",
+        "createdAt": "2026-05-14T09:00:00Z",
+        "updatedAt": "2026-05-14T10:00:00Z",
+        "activatedAt": "2026-05-14T10:00:00Z"
+      }
+    }
+  ]
+}

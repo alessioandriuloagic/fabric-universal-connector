@@ -1,0 +1,76 @@
+.connector-item-editor {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.connector-wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  max-width: 720px;
+
+  &__header {
+    margin-bottom: 8px;
+  }
+
+  &__progress {
+    margin-bottom: 24px;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 24px;
+    justify-content: flex-end;
+  }
+}
+
+.connector-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  height: 100%;
+}
+
+.connector-dashboard__summary-cards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.connector-dashboard__summary-card {
+  flex: 1 1 160px;
+  min-width: 140px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--colorNeutralStroke1);
+  background: var(--colorNeutralBackground1);
+}
+
+.entity-status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.entity-status-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--colorNeutralBackground1Hover);
+  }
+}
+
+.run-history-table {
+  flex: 1;
+  overflow: auto;
+}
