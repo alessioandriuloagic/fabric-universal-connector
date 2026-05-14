@@ -179,16 +179,27 @@ if (-not (Test-Path $nugetPath)) {
     }
 }
 
-if($IsWindows){
-    & $nugetPath pack $nuspecPath -OutputDirectory $outputDir -Verbosity detailed
-} else {
-    # On Mac and Linux, we need to use mono to run the script
-    # alternatively, we could use dotnet tool if available
-    # nuget pack $nuspecFile -OutputDirectory $outputDir -Verbosity detailed 2>&1   
-    mono $nugetPath pack $nuspecPath -OutputDirectory $outputDir -Verbosity detailed
+# Create the .nupkg file using Compress-Archive (handles spaces in paths better than nuget.exe)
+$outputDirResolved = Resolve-Path -Path $outputDir
+$zipFile = Join-Path $outputDirResolved "ManifestPackage.zip"
+$nupkgFile = Join-Path $outputDirResolved "ManifestPackage.nupkg"
+
+# Remove existing files
+if (Test-Path $zipFile) { Remove-Item $zipFile -Force }
+if (Test-Path $nupkgFile) { Remove-Item $nupkgFile -Force }
+
+Write-Host "Creating NuGet package..."
+Compress-Archive -Path "$tempPath\*" -DestinationPath $zipFile -Force
+
+# Rename .zip to .nupkg
+Rename-Item -Path $zipFile -NewName "ManifestPackage.nupkg" -Force
+
+if (-not (Test-Path $nupkgFile)) {
+    Write-Error "Failed to create package at $nupkgFile"
+    exit 1
 }
 
-Write-Host "✅ Created the new ManifestPackage in $outputDir." -ForegroundColor Blue
+Write-Host "SUCCESS: Created the new ManifestPackage in $outputDir." -ForegroundColor Blue
 
 # Cleanup temp directory
 if (Test-Path $tempPath) {

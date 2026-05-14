@@ -22,7 +22,8 @@
         "customActions": [
         ]},
         "recommendedItemTypes": [
-          "HelloWorld"
+          "HelloWorld",
+          "Connector"
         ]
     },
     "createExperience": {
@@ -48,9 +49,31 @@
             "onCreationFailure": { "action": "item.onCreationFailure" },
             "onCreationSuccess": { "action": "item.onCreationSuccess" }
           }
+        },
+        {
+          "title": "ConnectorItem_DisplayName",
+          "description": "ConnectorItem_Description",
+          "icon": {
+            "name": "assets/images/ConnectorItem_Icon.png"
+          },
+          "icon_small": {
+            "name": "assets/images/ConnectorItem_Icon.png"
+          },
+          "availableIn": [
+            "home",
+            "create-hub",
+            "workspace-plus-new",
+            "workspace-plus-new-teams"
+          ],
+          "itemType": "Connector",
+          "createItemDialogConfig": {
+            "onCreationFailure": { "action": "item.onCreationFailure" },
+            "onCreationSuccess": { "action": "item.onCreationSuccess" }
+          }
         }
       ]
     },
+
     "productDetail": {
       "publisher": "Name of publisher",
       "slogan": "Workload_Hub_Slogan",

@@ -20,6 +20,35 @@
     "HelloWorldItemEditor_Title": "Hello World Item Editor",
     "HelloWorldItemEditor_Definition_Message_Label": "Item Definition",
     "HelloWorldItemEditorEmpty_Message": "Let's say hello to {{itemName}}!",
-    "HelloWorldItemEditorEmpty_Button": "Save item"
+    "HelloWorldItemEditorEmpty_Button": "Save item",
+
+    "Connector_Wizard_Title": "Connector Configuration",
+    "Connector_Source_Label": "Source System",
+    "Connector_Company_Label": "Company",
+    "Connector_Tables_Label": "Tables to Import",
+    "Connector_Schedule_Label": "Sync Schedule",
+    "Connector_TestConnection_Button": "Test connection",
+    "Connector_Save_Button": "Save & Start Sync",
+    "Connector_Save_Success": "Connector saved and initial sync started.",
+    "Connector_Save_Failed": "Failed to save connector. See error details.",
+    "Connector_Validation_Required": "This field is required",
+    "Connector_UserTokenObtained": "User token obtained successfully for delegated flow.",
+
+    "ConnectorWizard_SourceConfig_Title": "Source Configuration",
+    "ConnectorWizard_SourceSystem_Label": "Source system",
+    "ConnectorWizard_BaseUrl_Label": "Base URL / Endpoint",
+    "ConnectorWizard_Company_Label": "Company (if applicable)",
+    "ConnectorWizard_Entities_Label": "Entities / Tables (comma separated)",
+    "ConnectorWizard_Secrets_Label": "Secrets (JSON)",
+    "ConnectorWizard_OBOToken_Label": "User Token for Delegated Access (Optional)",
+    "ConnectorWizard_OBOToken_Description": "Obtain a user access token to enable On-Behalf-Of (OBO) flows. This allows the backend to call source APIs on your behalf without storing your credentials.",
+    "ConnectorWizard_UserTokenReady": "User token ready for delegated flow",
+    "ConnectorWizard_ClearToken_Button": "Clear Token",
+    "ConnectorWizard_ObtainingToken_Button": "Obtaining Token...",
+    "ConnectorWizard_ObtainToken_Button": "Obtain User Token",
+    "ConnectorWizard_TokenError_Message": "Error obtaining token",
+    "ConnectorWizard_Testing_Button": "Testing...",
+    "ConnectorWizard_TestConnection_Button": "Test connection",
+    "ConnectorWizard_Result_Label": "Result"
 }
   

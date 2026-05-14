@@ -16,18 +16,23 @@ if((Test-Path $devGatewayDir) -and !$Force) {
 }
 if ($downloadDevGateway -eq "y") {
     $DEV_GATEWAY_DOWNLOAD_URL = "https://download.microsoft.com/download/c/4/a/c4a0a569-87cd-4633-a81e-26ef3d4266df/DevGateway.zip"
-    Write-Host "📥 Downloading DevGateway..."       
+    Write-Host "Downloading DevGateway..."       
     try {
-        if ($IsWindows) {
+        # Check OS (compatible with both PS5 and PS7)
+        $isOnWindows = if ($null -ne $IsWindows) { $IsWindows } else { $env:OS -eq "Windows_NT" }
+        $isOnLinux = if ($null -ne $IsLinux) { $IsLinux } else { $false }
+        $isOnMacOS = if ($null -ne $IsMacOS) { $IsMacOS } else { $false }
+        
+        if ($isOnWindows) {
             $tempDir = $env:TEMP
-        } elseif($IsLinux) {
+        } elseif($isOnLinux) {
             $tempDir = "/tmp"
-        } elseif($IsMacOS) {
+        } elseif($isOnMacOS) {
             # On macOS, TMPDIR is usually set to /tmp
             # but we can also use $env:TMPDIR
             $tempDir = $env:TMPDIR
         } else {        
-            Write-Host "❌ Unsupported operating system. Exiting."
+            Write-Host "ERROR: Unsupported operating system. Exiting."
             exit 1
         }
         # Example usage:
@@ -41,13 +46,13 @@ if ($downloadDevGateway -eq "y") {
         Expand-Archive -Path $tempZipPath -DestinationPath $devGatewayDir -Force
         # Remove the temporary ZIP file
         Remove-Item $tempZipPath
-        Write-Host "✅ DevGateway downloaded and extracted to $devGatewayDir"
+        Write-Host "SUCCESS: DevGateway downloaded and extracted to $devGatewayDir"
     }
     catch {
-        Write-Host "❌ Failed to download or extract DevGateway: $_"
+        Write-Host "Failed to download or extract DevGateway: $_"
         exit 1
     }
 }
 else {
-    Write-Host "⏭️ Skipping DevGateway download."
+    Write-Host "Skipping DevGateway download."
 }

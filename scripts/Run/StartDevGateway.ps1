@@ -19,20 +19,43 @@ if (Test-Path $buildManifestPackageScript) {
 # Starting the Frontend
 ################################################
 $fileExe = ""
-if($IsWindows) { 
+# Check if we're on Windows (compatible with both PS5 and PS7)
+$isOnWindows = if ($null -ne $IsWindows) { $IsWindows } else { $env:OS -eq "Windows_NT" }
+if($isOnWindows) { 
     $fileExe = Join-Path $PSScriptRoot "..\..\tools\DevGateway\Microsoft.Fabric.Workload.DevGateway.exe"
 } else { 
     $fileExe = Join-Path $PSScriptRoot "..\..\tools\DevGateway\Microsoft.Fabric.Workload.DevGateway.dll"
 }
 
-$CONFIGURATIONFILE = Resolve-Path -Path (Join-Path $PSScriptRoot "..\..\build\DevGateway\workload-dev-mode.json")
-$CONFIGURATIONFILE = $CONFIGURATIONFILE.Path
+# Try multiple possible locations for the configuration file
+$configPaths = @(
+    (Join-Path $PSScriptRoot "..\..\build\DevGateway\workload-dev-mode.json"),
+    (Join-Path $PSScriptRoot "..\..\Workload\workload-dev-mode.json")
+)
+
+$CONFIGURATIONFILE = $null
+foreach ($path in $configPaths) {
+    if (Test-Path $path) {
+        $CONFIGURATIONFILE = (Resolve-Path -Path $path).Path
+        break
+    }
+}
+
+if (-not $CONFIGURATIONFILE) {
+    Write-Error "Configuration file workload-dev-mode.json not found in any expected location:"
+    foreach ($path in $configPaths) {
+        Write-Error "  - $path"
+    }
+    exit 1
+}
 Write-Host "DevGateway used: $fileExe"
 Write-Host "Configuration xsfile used: $CONFIGURATIONFILE"
 
 $token = ""
 # When InteractiveLogin is false, always use az commands for authentication
-if (-not $InteractiveLogin -or $env:CODESPACES -eq "true" -or $IsMacOS) {
+# Check if we're on MacOS (compatible with both PS5 and PS7)
+$isOnMacOS = if ($null -ne $IsMacOS) { $IsMacOS } else { $false }
+if (-not $InteractiveLogin -or $env:CODESPACES -eq "true" -or $isOnMacOS) {
     Write-Host "Using non-interactive authentication via az CLI..." -ForegroundColor Green
     
     # Check if already logged in
@@ -53,7 +76,7 @@ $devWorkspaceId = $config.WorkspaceGuid
 $logLevel = "Information"
 
 
-if($IsWindows) { 
+if($isOnWindows) { 
     if ($InteractiveLogin -and [string]::IsNullOrEmpty($token)) {
         # Use interactive mode only when explicitly requested and no token available
         Write-Host "Starting DevGateway in interactive mode..." -ForegroundColor Green

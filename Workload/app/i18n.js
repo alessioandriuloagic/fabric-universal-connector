@@ -8,11 +8,15 @@ i18n
     .use(initReactI18next)
     .init({
         fallbackLng: 'en-US',
-        supportedLngs: ['en-US', 'es', 'he'],
+        supportedLngs: ['en-US', 'es', 'he', 'it'],
         debug: false,
         useSuspense: false,
         backend: {
-            loadPath: "/assets/locales/{{lng}}/translation.json"
+            // Try per-language folder first, then fallback to a single file per locale in the root locales folder
+            loadPath: [
+                "/assets/locales/{{lng}}/translation.json",
+                "/assets/locales/translation.{{lng}}.json"
+            ]
         }
 
     });

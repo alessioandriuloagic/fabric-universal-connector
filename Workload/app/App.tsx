@@ -3,6 +3,9 @@ import { Route, Router, Switch } from "react-router-dom";
 import { History } from "history";
 import { WorkloadClientAPI } from "@ms-fabric/workload-client";
 import { HelloWorldItemEditor} from "./items/HelloWorldItem";
+import SourceConfig from "./components/SourceConfig";
+import ConnectorWizard from "./components/ConnectorWizard";
+import ConnectorSummary from "./components/ConnectorSummary";
 import { ConditionalPlaygroundRoutes } from "./playground/ConditionalPlaygroundRoutes";
 
 /*
@@ -47,6 +50,21 @@ export function App({ history, workloadClient }: AppProps) {
             <Route path="/HelloWorldItem-editor/:itemObjectId">
                 <HelloWorldItemEditor
                     workloadClient={workloadClient} data-testid="HelloWorldItem-editor" />
+            </Route>
+
+            {/* New route: Connector Configuration UI */}
+            <Route path="/connector-config">
+                <SourceConfig />
+            </Route>
+
+            {/* Connector Wizard route - multi-step config and save */}
+            <Route path="/connector-wizard">
+                <ConnectorWizard />
+            </Route>
+
+            {/* Connector Summary route */}
+            <Route path="/connector-summary">
+                <ConnectorSummary summary={{}} />
             </Route>
 
             {/* Conditionally loaded playground routes (only in development) */}

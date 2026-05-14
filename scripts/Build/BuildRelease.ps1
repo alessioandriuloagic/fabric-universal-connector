@@ -50,7 +50,7 @@ $releaseManifestDir = Join-Path $releaseDir ""
 
 Move-Item -Path "$buildManifestDir\*.nupkg" -Destination $releaseManifestDir -Force
 
-Write-Host "✅ Moved the new ManifestPackage to $releaseManifestDir." -ForegroundColor Blue
+Write-Host "SUCCESS: Moved the new ManifestPackage to $releaseManifestDir." -ForegroundColor Blue
 
 
 ###############################################################################
@@ -75,9 +75,9 @@ try {
     $buildFrontendDir = Join-Path $PSScriptRoot "..\..\build\Frontend"
     if (Test-Path $buildFrontendDir) {
         Copy-Item -Path "$buildFrontendDir\*" -Destination $releaseAppDir -Recurse -Force
-        Write-Host "✅ Copied app release files to $releaseAppDir" -ForegroundColor Blue
+        Write-Host "SUCCESS: Copied app release files to $releaseAppDir" -ForegroundColor Blue
     } else {
-        Write-Host "⚠️  Warning: Frontend build directory not found at $buildFrontendDir" -ForegroundColor Yellow
+        Write-Host "WARNING: Frontend build directory not found at $buildFrontendDir" -ForegroundColor Yellow
     }
 
 } finally {
