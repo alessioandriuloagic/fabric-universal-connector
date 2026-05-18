@@ -11,12 +11,6 @@
 
 $ErrorActionPreference = "Continue"
 
-function Invoke-Az {
-    param([string[]]$Args)
-    $output = & az @Args 2>$null
-    return $output
-}
-
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "  Fabric Universal Connector - Azure Static Web App Setup" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
@@ -24,18 +18,20 @@ Write-Host ""
 
 ################################################
 # Verify Azure CLI + login
+# --only-show-errors suppresses warnings (e.g. upgrade notices) without
+# 2>$null, which in PS5.1 mixes stderr into stdout and breaks ConvertFrom-Json
 ################################################
-& az --version | Out-Null
+& az --version --only-show-errors | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Azure CLI not found. Install from: https://docs.microsoft.com/cli/azure/install-azure-cli"
     exit 1
 }
 
-$accountJson = Invoke-Az @("account", "show")
+$accountJson = az account show --output json --only-show-errors
 if ($LASTEXITCODE -ne 0 -or -not $accountJson) {
     Write-Host "Not logged in - running az login..." -ForegroundColor Yellow
-    az login
-    $accountJson = Invoke-Az @("account", "show")
+    az login --only-show-errors
+    $accountJson = az account show --output json --only-show-errors
 }
 
 $account = $accountJson | ConvertFrom-Json
@@ -44,7 +40,7 @@ Write-Host "Subscription  : $($account.name) ($($account.id))" -ForegroundColor 
 
 if ($SubscriptionId -and $account.id -ne $SubscriptionId) {
     Write-Host "Switching to subscription $SubscriptionId..." -ForegroundColor Yellow
-    az account set --subscription $SubscriptionId
+    az account set --subscription $SubscriptionId --only-show-errors
     if ($LASTEXITCODE -ne 0) { Write-Error "Failed to switch subscription."; exit 1 }
 }
 
@@ -54,7 +50,7 @@ Write-Host ""
 # Register provider (idempotent)
 ################################################
 Write-Host "Step 1/3 - Registering Microsoft.Web provider..." -ForegroundColor Yellow
-az provider register --namespace Microsoft.Web | Out-Null
+az provider register --namespace Microsoft.Web --only-show-errors | Out-Null
 Write-Host "  Done." -ForegroundColor Green
 
 ################################################
@@ -62,11 +58,11 @@ Write-Host "  Done." -ForegroundColor Green
 ################################################
 Write-Host "Step 2/3 - Resource Group '$ResourceGroupName'..." -ForegroundColor Yellow
 
-Invoke-Az @("group", "show", "--name", $ResourceGroupName) | Out-Null
+az group show --name $ResourceGroupName --only-show-errors | Out-Null
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  Already exists - skipping." -ForegroundColor Cyan
 } else {
-    az group create --name $ResourceGroupName --location $Location | Out-Null
+    az group create --name $ResourceGroupName --location $Location --only-show-errors | Out-Null
     if ($LASTEXITCODE -ne 0) { Write-Error "Failed to create resource group."; exit 1 }
     Write-Host "  Created in $Location." -ForegroundColor Green
 }
@@ -76,7 +72,7 @@ if ($LASTEXITCODE -eq 0) {
 ################################################
 Write-Host "Step 3/3 - Static Web App '$AppName'..." -ForegroundColor Yellow
 
-Invoke-Az @("staticwebapp", "show", "--name", $AppName, "--resource-group", $ResourceGroupName) | Out-Null
+az staticwebapp show --name $AppName --resource-group $ResourceGroupName --only-show-errors | Out-Null
 if ($LASTEXITCODE -eq 0) {
     Write-Host "  Already exists - skipping." -ForegroundColor Cyan
 } else {
@@ -84,7 +80,8 @@ if ($LASTEXITCODE -eq 0) {
         --name $AppName `
         --resource-group $ResourceGroupName `
         --location $Location `
-        --sku Free | Out-Null
+        --sku Free `
+        --only-show-errors | Out-Null
     if ($LASTEXITCODE -ne 0) { Write-Error "Failed to create Static Web App."; exit 1 }
     Write-Host "  Created." -ForegroundColor Green
 }
@@ -92,8 +89,14 @@ if ($LASTEXITCODE -eq 0) {
 ################################################
 # Retrieve hostname
 ################################################
-$hostJson = Invoke-Az @("staticwebapp", "show", "--name", $AppName, "--resource-group", $ResourceGroupName, "--query", "defaultHostname", "--output", "tsv")
-$hostname = ($hostJson | Out-String).Trim()
+$hostname = az staticwebapp show `
+    --name $AppName `
+    --resource-group $ResourceGroupName `
+    --query "defaultHostname" `
+    --output tsv `
+    --only-show-errors
+
+$hostname = ($hostname | Out-String).Trim()
 $webappUrl = "https://$hostname"
 
 ################################################

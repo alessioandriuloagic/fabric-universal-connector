@@ -11,12 +11,6 @@
 
 $ErrorActionPreference = "Continue"
 
-function Invoke-Az {
-    param([string[]]$Args)
-    $output = & az @Args 2>$null
-    return $output
-}
-
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "  Fabric Universal Connector - Deploy to Static Web App" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
@@ -24,18 +18,20 @@ Write-Host ""
 
 ################################################
 # Verify Azure CLI + login
+# --only-show-errors suppresses warnings (e.g. upgrade notices) without
+# 2>$null, which in PS5.1 mixes stderr into stdout and breaks ConvertFrom-Json
 ################################################
-& az --version | Out-Null
+& az --version --only-show-errors | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Azure CLI not found. Install from: https://docs.microsoft.com/cli/azure/install-azure-cli"
     exit 1
 }
 
-$accountJson = Invoke-Az @("account", "show")
+$accountJson = az account show --output json --only-show-errors
 if ($LASTEXITCODE -ne 0 -or -not $accountJson) {
     Write-Host "Not logged in - running az login..." -ForegroundColor Yellow
-    az login
-    $accountJson = Invoke-Az @("account", "show")
+    az login --only-show-errors
+    $accountJson = az account show --output json --only-show-errors
 }
 
 $account = $accountJson | ConvertFrom-Json
@@ -43,7 +39,7 @@ Write-Host "Logged in as  : $($account.user.name)" -ForegroundColor Green
 Write-Host "Subscription  : $($account.name) ($($account.id))" -ForegroundColor Green
 
 if ($SubscriptionId -and $account.id -ne $SubscriptionId) {
-    az account set --subscription $SubscriptionId
+    az account set --subscription $SubscriptionId --only-show-errors
     if ($LASTEXITCODE -ne 0) { Write-Error "Failed to switch subscription."; exit 1 }
 }
 
@@ -54,15 +50,18 @@ Write-Host ""
 ################################################
 $fullReleasePath = Join-Path $PSScriptRoot $ReleasePath
 if (-not (Test-Path $fullReleasePath)) {
-    Write-Error "Release directory not found: $fullReleasePath"
-    Write-Host "Run first: .\scripts\Build\BuildRelease.ps1 -Environment prod" -ForegroundColor Yellow
+    Write-Host "Release directory not found: $fullReleasePath" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Build the release first:" -ForegroundColor Yellow
+    Write-Host "  1. Set FRONTEND_URL and FRONTEND_APPID in Workload\.env.prod" -ForegroundColor White
+    Write-Host "  2. Run: .\scripts\Build\BuildRelease.ps1 -FrontendAppId <App-ID> -Environment prod" -ForegroundColor White
     exit 1
 }
 if (-not (Test-Path (Join-Path $fullReleasePath "index.html"))) {
-    Write-Error "index.html not found in $fullReleasePath — build may have failed."
+    Write-Error "index.html not found in $fullReleasePath - build may have failed."
     exit 1
 }
-Write-Host "Release directory: $fullReleasePath" -ForegroundColor Green
+Write-Host "Release directory validated: $fullReleasePath" -ForegroundColor Green
 
 ################################################
 # Retrieve deployment token
@@ -70,8 +69,14 @@ Write-Host "Release directory: $fullReleasePath" -ForegroundColor Green
 Write-Host ""
 Write-Host "Step 1/3 - Retrieving deployment token..." -ForegroundColor Yellow
 
-$tokenJson = Invoke-Az @("staticwebapp", "secrets", "list", "--name", $AppName, "--resource-group", $ResourceGroupName, "--query", "properties.apiKey", "--output", "tsv")
-$deployToken = ($tokenJson | Out-String).Trim()
+$deployToken = az staticwebapp secrets list `
+    --name $AppName `
+    --resource-group $ResourceGroupName `
+    --query "properties.apiKey" `
+    --output tsv `
+    --only-show-errors
+
+$deployToken = ($deployToken | Out-String).Trim()
 
 if (-not $deployToken) {
     Write-Error "Could not retrieve deployment token for '$AppName'. Check that the Static Web App exists."
@@ -87,7 +92,7 @@ Write-Host "Step 2/3 - Checking SWA CLI..." -ForegroundColor Yellow
 & swa --version | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  SWA CLI not found - installing globally..." -ForegroundColor Yellow
-    npm install -g @azure/static-web-apps-cli | Out-Null
+    npm install -g @azure/static-web-apps-cli
     if ($LASTEXITCODE -ne 0) { Write-Error "Failed to install SWA CLI."; exit 1 }
 }
 Write-Host "  SWA CLI ready." -ForegroundColor Green
@@ -95,7 +100,7 @@ Write-Host "  SWA CLI ready." -ForegroundColor Green
 ################################################
 # Deploy
 ################################################
-Write-Host "Step 3/3 - Deploying to Static Web App '$AppName'..." -ForegroundColor Yellow
+Write-Host "Step 3/3 - Deploying to '$AppName'..." -ForegroundColor Yellow
 
 swa deploy $fullReleasePath --deployment-token $deployToken --env production
 if ($LASTEXITCODE -ne 0) {
@@ -106,8 +111,14 @@ if ($LASTEXITCODE -ne 0) {
 ################################################
 # Retrieve URL and summary
 ################################################
-$hostJson = Invoke-Az @("staticwebapp", "show", "--name", $AppName, "--resource-group", $ResourceGroupName, "--query", "defaultHostname", "--output", "tsv")
-$hostname = ($hostJson | Out-String).Trim()
+$hostname = az staticwebapp show `
+    --name $AppName `
+    --resource-group $ResourceGroupName `
+    --query "defaultHostname" `
+    --output tsv `
+    --only-show-errors
+
+$hostname = ($hostname | Out-String).Trim()
 $webappUrl = "https://$hostname"
 
 Write-Host ""
