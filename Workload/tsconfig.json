@@ -19,7 +19,7 @@
         "skipLibCheck": true,
         "sourceMap": true,
         "strict": true,
-        "strictNullChecks": false,
+        "strictNullChecks": true,
         "stripInternal": true,
         "target": "ES2017",
         "useUnknownInCatchVariables": false,

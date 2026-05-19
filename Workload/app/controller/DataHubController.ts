@@ -13,14 +13,14 @@ export interface ItemAndPath extends Item {
     selectedPath: string;
 }
 
-export async function callDatahubWizardOpen(    
+export async function callDatahubWizardOpen(
     workloadClient: WorkloadClientAPI,
     supportedTypes: ExtendedItemTypeV2[],
     dialogSubmittButtonName: string,
-    dialogDescription: string,    
+    dialogDescription: string,
     multiSelectionEnabled: boolean = false,
     showFilesFolder: boolean = true,
-    workspaceNavigationEnabled: boolean = true): Promise<ItemAndPath> {
+    workspaceNavigationEnabled: boolean = true): Promise<ItemAndPath | null> {
 
    const datahubWizardConfig: DatahubWizardDialogConfig = {
         datahubCompactViewPageConfig: {
@@ -29,8 +29,8 @@ export async function callDatahubWizardOpen(
                 multiSelectionEnabled: multiSelectionEnabled,
                 workspaceNavigationEnabled: workspaceNavigationEnabled,
                 hostDetails: {
-                    experience: 'sample experience 3rd party', // Change this to reflect your team's process, e.g., "Create Shortcut for itemType" 
-                    scenario: 'sample scenario 3rd party', // Adjust this to the specific action, e.g., "Select Lakehouse" 
+                    experience: 'sample experience 3rd party',
+                    scenario: 'sample scenario 3rd party',
                 }
             } as DatahubCompactViewConfig
         } as DatahubCompactViewPageConfig,
@@ -46,7 +46,7 @@ export async function callDatahubWizardOpen(
         } as OneLakeExplorerPageConfig,
         submitButtonName: dialogSubmittButtonName,
     }
- 
+
     const result: DatahubWizardDialogResult = await workloadClient.datahub.openDatahubWizardDialog(datahubWizardConfig);
     if (!result.onelakeExplorerResult) {
         return null;
@@ -54,45 +54,35 @@ export async function callDatahubWizardOpen(
 
     const selectedItem = result.onelakeExplorerResult;
     const { itemObjectId, workspaceObjectId } = selectedItem;
-    //TODO: Update this when the type is available in the result
-    const { displayName, description } = { displayName: "", description: "" };
+    // itemType is not yet available on the OneLake Explorer result — tracked in Fabric WDK backlog.
+    // Using empty string as a safe placeholder; update once the SDK exposes it.
     return {
         id: itemObjectId,
         workspaceId: workspaceObjectId,
-        type: "TODO", // selectedItem.datahubItemUI.itemType, // TODO: Update this when the type is available in the result
-        displayName,
-        description,
-        selectedPath: selectedItem.selectedPath.split('/').slice(2).join('/') // Remove the first two segments (workspace and item)
+        type: "",
+        displayName: "",
+        description: "",
+        selectedPath: selectedItem.selectedPath.split('/').slice(2).join('/'),
     };
 }
 
 
-/**
- * Calls the 'datahub.openDialog' function from the WorkloadClientAPI to open a OneLake data hub dialog to select Lakehouse item(s).
- * TODO: needs to change TypeV2
- * @param {ExtendedItemTypeV2[]} supportedTypes - The item types supported by the datahub dialog.
- * @param {string} dialogDescription - The sub-title of the datahub dialog
- * @param {boolean} multiSelectionEnabled - Whether the datahub dialog supports multi selection of datahub items
- * @param {WorkloadClientAPI} workloadClient - An instance of the WorkloadClientAPI.
- * @param {boolean} workspaceNavigationEnabled - Whether the datahub dialog supports workspace navigation bar or not.
- */
 export async function callDatahubOpen(
     workloadClient: WorkloadClientAPI,
     supportedTypes: ExtendedItemTypeV2[],
     dialogDescription: string,
     multiSelectionEnabled: boolean,
-    
-    workspaceNavigationEnabled: boolean = true): Promise<Item> {
+    workspaceNavigationEnabled: boolean = true): Promise<Item | null> {
 
     const datahubConfig: DatahubSelectorDialogConfig = {
         supportedTypes: supportedTypes,
         multiSelectionEnabled: multiSelectionEnabled,
         dialogDescription: dialogDescription,
         workspaceNavigationEnabled: workspaceNavigationEnabled,
-        // not in use in the regular selector, but required to be non-empty for validation
+        // required to be non-empty for SDK validation; not surfaced to the user
         hostDetails: {
-            experience: 'sample experience 3rd party', // Change this to reflect your team's process, e.g., "Build notebook" 
-            scenario: 'sample scenario 3rd party', // Adjust this to the specific action, e.g., "Select Lakehouse" 
+            experience: 'sample experience 3rd party',
+            scenario: 'sample scenario 3rd party',
         }
     };
 
@@ -109,6 +99,6 @@ export async function callDatahubOpen(
         workspaceId: workspaceObjectId,
         type: selectedItem.datahubItemUI.itemType,
         displayName,
-        description
+        description,
     };
 }

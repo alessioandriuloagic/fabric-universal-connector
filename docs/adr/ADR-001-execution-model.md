@@ -4,12 +4,12 @@
 |---|---|
 | **ID** | ADR-001 |
 | **Titolo** | Modello di esecuzione dell'ingestion runtime |
-| **Stato** | Accettato |
+| **Stato** | Accettato (§3 Hosting superseded da ADR-002) |
 | **Data** | 2026-05-19 |
 | **Autori** | Alessio Andriulo — Agic Technology srl |
 | **Revisori** | — |
 | **Sostituisce** | — |
-| **Collegato a** | `.ai/architecture/target-architecture.md`, `.ai/contracts/ingestion-contracts.md` |
+| **Collegato a** | `docs/adr/ADR-002-backend-hosting.md` |
 
 ---
 
@@ -110,9 +110,11 @@ ONELAKE (tenant cliente)
 
 ### Stack tecnico ISV
 
+> ⚠️ **Nota:** La piattaforma di hosting originariamente prevista (Azure Functions) è stata sostituita da **Azure Container Apps** nella fase di costruzione del backend. Vedere [ADR-002](./ADR-002-backend-hosting.md) per la decisione definitiva sul runtime. Il resto di questa sezione (modello di esecuzione ISV, analisi CU, scelta Python) rimane valido.
+
 | Componente | Tecnologia | Motivazione |
 |---|---|---|
-| Runtime | Azure Functions v2 (Python 3.11) | Serverless, scala a zero, cold start < 1s |
+| Runtime | Azure Container Apps (FastAPI + uvicorn) | Serverless container-based, scala a zero — vedi ADR-002 |
 | Delta write | `delta-rs` + `pyarrow` | Scrittura Delta Lake nativa da Python, senza Spark |
 | Auth | `msal` (client credentials) | Acquisizione token per Dataverse, BC, Azure Key Vault |
 | OneLake access | `azure-storage-file-datalake` (ABFS) | Protocollo nativo OneLake — nessun SDK Fabric proprietario |
@@ -198,40 +200,50 @@ La specifica completa è nella documentazione ufficiale Microsoft Fabric Workloa
 
 ### Struttura del backend Python
 
+> ⚠️ **Struttura aggiornata:** il backend è costruito con FastAPI (non Azure Functions). Vedere [ADR-002](./ADR-002-backend-hosting.md) per il dettaglio sulla piattaforma di hosting.
+
 ```
 backend/
-├── function_app.py                    ← entry point Azure Functions
-├── routes/
-│   └── jobs.py                        ← IJobsController endpoints
-├── services/
-│   ├── fabric_client.py               ← lettura item definition da Fabric API
-│   ├── auth_service.py                ← MSAL token acquisition + Key Vault
-│   ├── onelake_writer.py              ← scrittura Delta su ABFS via delta-rs
-│   └── job_tracker.py                 ← stato job (Azure Table Storage)
-├── connectors/
-│   ├── base_connector.py              ← BaseConnector (da ingestion-contracts.md)
-│   ├── crm/crm_connector.py           ← CRMConnector (Dataverse OData)
-│   ├── businesscentral/bc_connector.py
-│   └── sql/sql_connector.py
-├── models/
-│   ├── connector_item_definition.py   ← dataclass (mirror di ConnectorItemDefinition.ts)
-│   └── job_models.py                  ← request/response models WDK
+├── app/
+│   ├── main.py                        ← entry point FastAPI + uvicorn
+│   ├── api/
+│   │   └── jobs.py                    ← IJobsController endpoints
+│   ├── services/
+│   │   ├── fabric_client.py           ← lettura item definition da Fabric API
+│   │   ├── auth_service.py            ← MSAL token acquisition + Key Vault
+│   │   ├── onelake_writer.py          ← scrittura Delta su ABFS via delta-rs
+│   │   └── job_tracker.py             ← stato job (in-memory / Table Storage)
+│   ├── connectors/
+│   │   ├── base_connector.py          ← BaseConnector
+│   │   ├── crm/crm_connector.py       ← CRMConnector (Dataverse OData)
+│   │   ├── businesscentral/bc_connector.py
+│   │   └── sql/sql_connector.py
+│   ├── models/
+│   │   ├── connector_item_definition.py
+│   │   └── job_models.py              ← request/response models WDK
+│   ├── exceptions.py
+│   └── rate_limiter.py
+├── tests/
+├── Dockerfile
 ├── requirements.txt
-└── host.json
+└── requirements-dev.txt
 ```
 
 ### Dipendenze Python principali
 
+> Le dipendenze effettive sono in `backend/requirements.txt`. Le chiavi rimangono invariate, rimossa `azure-functions`.
+
 ```
-azure-functions>=1.21
-azure-identity>=1.19          # DefaultAzureCredential, Managed Identity
-azure-keyvault-secrets>=4.8   # Key Vault secret resolution
-azure-storage-file-datalake>=12.17  # ABFS write su OneLake
-msal>=1.31                    # OAuth2 client credentials (CRM, BC)
-deltalake>=0.19               # delta-rs: scrittura Delta Lake senza Spark
-pyarrow>=16.0                 # columnar data → Delta
-httpx>=0.27                   # HTTP client async per chiamate OData
-pydantic>=2.7                 # validazione config
+fastapi                       # framework HTTP ASGI
+uvicorn                       # ASGI server
+azure-identity                # DefaultAzureCredential, Managed Identity
+azure-keyvault-secrets        # Key Vault secret resolution
+azure-storage-file-datalake   # ABFS write su OneLake
+msal                          # OAuth2 client credentials (CRM, BC)
+deltalake                     # delta-rs: scrittura Delta Lake senza Spark
+pyarrow                       # columnar data → Delta
+httpx                         # HTTP client async per chiamate OData
+pydantic                      # validazione config
 ```
 
 ### WorkloadManifest.xml — aggiunta endpoint backend

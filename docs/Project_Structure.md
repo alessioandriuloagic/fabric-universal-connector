@@ -115,10 +115,10 @@ Each build target uses the appropriate `.env.*` file:
 
 ### What Gets Committed
 
-- ✅ `Workload/.env.dev` - All team members use this for development
-- ✅ `Workload/.env.test` - Staging environment configuration
-- ✅ `Workload/.env.prod` - Production environment configuration
-- ✅ `Workload/.env.template` - Setup template for project initialization
+- ❌ `Workload/.env.dev` - Generated locally by SetupWorkload.ps1, excluded by `.gitignore`
+- ❌ `Workload/.env.test` - Generated locally, excluded by `.gitignore`
+- ❌ `Workload/.env.prod` - Generated locally, excluded by `.gitignore`
+- ✅ `Workload/.env.template` - Setup template for project initialization (the only `.env` file committed)
 - ✅ `Workload/Manifest/` - All manifest templates and item configurations
 - ✅ `Workload/app/` - Application source code
 

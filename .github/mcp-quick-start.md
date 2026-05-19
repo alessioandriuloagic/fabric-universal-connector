@@ -106,7 +106,7 @@ docker stop chroma_server
 
 ## 📚 Full Documentation
 
-See [MCP_Setup.md](../docs/MCP_Setup.md) for complete details.
+See [FabricUX_MCP_Server.md](../docs/FabricUX_MCP_Server.md) for complete details.
 
 ## ✨ Benefits for This Project
 
