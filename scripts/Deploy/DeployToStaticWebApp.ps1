@@ -86,23 +86,27 @@ Write-Host "  Token retrieved." -ForegroundColor Green
 
 ################################################
 # Ensure SWA CLI is available
+# Use Get-Command (not & swa) to detect CommandNotFoundException correctly.
+# Use npx to invoke SWA so PATH refresh is not needed after npm install -g.
 ################################################
 Write-Host "Step 2/3 - Checking SWA CLI..." -ForegroundColor Yellow
 
-& swa --version | Out-Null
-if ($LASTEXITCODE -ne 0) {
+$swaCmd = Get-Command swa -ErrorAction SilentlyContinue
+if (-not $swaCmd) {
     Write-Host "  SWA CLI not found - installing globally..." -ForegroundColor Yellow
     npm install -g @azure/static-web-apps-cli
     if ($LASTEXITCODE -ne 0) { Write-Error "Failed to install SWA CLI."; exit 1 }
+    Write-Host "  SWA CLI installed." -ForegroundColor Green
+} else {
+    Write-Host "  SWA CLI ready." -ForegroundColor Green
 }
-Write-Host "  SWA CLI ready." -ForegroundColor Green
 
 ################################################
-# Deploy
+# Deploy (via npx so PATH refresh is not required after install)
 ################################################
 Write-Host "Step 3/3 - Deploying to '$AppName'..." -ForegroundColor Yellow
 
-swa deploy $fullReleasePath --deployment-token $deployToken --env production
+npx --yes @azure/static-web-apps-cli deploy $fullReleasePath --deployment-token $deployToken --env production
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Deployment failed."
     exit 1
