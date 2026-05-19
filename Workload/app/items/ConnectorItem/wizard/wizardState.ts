@@ -86,4 +86,5 @@ export interface WizardStepProps {
   wizardState: WizardState;
   onUpdate: (patch: Partial<WizardState>) => void;
   validationErrors: Record<string, string>;
+  onActivate?: () => Promise<void>;
 }

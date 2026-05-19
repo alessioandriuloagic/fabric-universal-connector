@@ -32,7 +32,9 @@
       "PowerShell(az appservice plan create --name \"agic-fabric-plan\" --resource-group \"alessio_dev\" --sku F1 --only-show-errors --query \"provisioningState\" -o tsv)",
       "PowerShell(az webapp create --name \"agic-fabric-connector\" --resource-group \"alessio_dev\" --plan \"agic-fabric-plan\" --only-show-errors --query \"defaultHostName\" -o tsv)",
       "PowerShell(az rest --method post --url \"https://graph.microsoft.com/v1.0/domains\" --body '{\\\\\"id\\\\\":\\\\\"agictechnology.com\\\\\"}' --only-show-errors 2>&1)",
-      "PowerShell(& \"c:\\\\Users\\\\AlessioAndriulo\\\\OneDrive - Agic Technology srl\\\\Desktop\\\\fabric-universal-connector\\\\scripts\\\\Setup\\\\SetupDevEnvironment.ps1\" -DevWorkspaceId \"22591ff4-22cf-4854-b02d-e2a68fa84ce2\" -Force $true)"
+      "PowerShell(& \"c:\\\\Users\\\\AlessioAndriulo\\\\OneDrive - Agic Technology srl\\\\Desktop\\\\fabric-universal-connector\\\\scripts\\\\Setup\\\\SetupDevEnvironment.ps1\" -DevWorkspaceId \"22591ff4-22cf-4854-b02d-e2a68fa84ce2\" -Force $true)",
+      "Bash(Get-ChildItem -Recurse -Depth 2 -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)"
     ]
   }
 }

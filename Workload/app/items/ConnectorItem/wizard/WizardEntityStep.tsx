@@ -1,15 +1,69 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Checkbox, Text } from "@fluentui/react-components";
+import { CrmEntityConfiguration } from "../ConnectorItemDefinition";
 import { WizardStepProps } from "./wizardState";
 
-const CRM_CATALOG = [
-  { key: "contact",                    label: "Contact" },
-  { key: "lead",                       label: "Lead" },
-  { key: "msdynmkt_marketingform",     label: "Marketing Form" },
-  { key: "msdynmkt_marketingemail",    label: "Marketing Email" },
-  { key: "msdynmkt_customerjourney",   label: "Customer Journey" },
+interface CrmCatalogEntry {
+  key: string;
+  label: string;
+  logicalName: string;
+  displayName: string;
+  extractionMode: "incremental" | "full";
+  selectColumns: string[];
+}
+
+export const CRM_CATALOG: CrmCatalogEntry[] = [
+  {
+    key: "contact",
+    logicalName: "contact",
+    label: "Contact",
+    displayName: "Contact",
+    extractionMode: "incremental",
+    selectColumns: [
+      "contactid", "firstname", "lastname", "fullname",
+      "emailaddress1", "telephone1", "mobilephone",
+      "statecode", "createdon", "modifiedon",
+    ],
+  },
+  {
+    key: "msdynmkt_email",
+    logicalName: "msdynmkt_email",
+    label: "Marketing Email (Customer Insights Journey)",
+    displayName: "Marketing Email (Customer Insights Journey)",
+    extractionMode: "incremental",
+    selectColumns: [
+      "msdynmkt_emailid", "msdynmkt_name", "msdynmkt_subject",
+      "msdynmkt_fromname", "msdynmkt_fromemail",
+      "statecode", "statuscode", "createdon", "modifiedon",
+    ],
+  },
+  {
+    key: "msdynmkt_journey",
+    logicalName: "msdynmkt_journey",
+    label: "Journey (Customer Insights Journey)",
+    displayName: "Journey (Customer Insights Journey)",
+    extractionMode: "incremental",
+    selectColumns: [
+      "msdynmkt_journeyid", "msdynmkt_name",
+      "msdynmkt_journeytype", "msdynmkt_start", "msdynmkt_end",
+      "statecode", "statuscode", "createdon", "modifiedon",
+    ],
+  },
 ];
+
+export function expandCrmEntities(selectedKeys: string[]): CrmEntityConfiguration[] {
+  return selectedKeys
+    .map((key) => CRM_CATALOG.find((e) => e.key === key))
+    .filter((e): e is CrmCatalogEntry => e !== undefined)
+    .map((e) => ({
+      logicalName: e.logicalName,
+      displayName: e.displayName,
+      enabled: true,
+      extractionMode: e.extractionMode,
+      selectColumns: e.selectColumns,
+    }));
+}
 
 export function WizardEntityStep({ wizardState, onUpdate, validationErrors }: WizardStepProps) {
   const { t } = useTranslation();

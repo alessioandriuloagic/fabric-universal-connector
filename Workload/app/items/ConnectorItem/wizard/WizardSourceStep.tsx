@@ -18,16 +18,24 @@ export function WizardSourceStep({ wizardState, onUpdate, validationErrors }: Wi
 
       {moduleType === "crm" && (
         <>
-          <Field label={t("Wizard_Source_CRM_Url", "Environment URL")}
-                 validationMessage={validationErrors.environmentUrl} required>
+          <Field
+            label={t("Wizard_Source_CRM_Url", "CRM Organization URL")}
+            hint={t("Wizard_Source_CRM_Url_Hint", "The Dataverse environment URL for your Dynamics 365 / Customer Insights organization.")}
+            validationMessage={validationErrors.environmentUrl}
+            required
+          >
             <Input
               value={(source as any).environmentUrl ?? ""}
-              placeholder="https://org.crm4.dynamics.com"
+              placeholder="https://yourorg.crm4.dynamics.com"
               onChange={(_, d) => updateSource({ environmentUrl: d.value })}
             />
           </Field>
-          <Field label={t("Wizard_Source_TenantId", "Tenant ID")}
-                 validationMessage={validationErrors.tenantId} required>
+          <Field
+            label={t("Wizard_Source_TenantId", "Azure AD Tenant ID")}
+            hint={t("Wizard_Source_TenantId_Hint", "The Azure Active Directory tenant that owns the Dynamics 365 organization.")}
+            validationMessage={validationErrors.tenantId}
+            required
+          >
             <Input
               value={(source as any).tenantId ?? ""}
               placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
