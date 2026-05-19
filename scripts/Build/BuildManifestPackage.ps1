@@ -179,12 +179,16 @@ if (-not (Test-Path $nugetPath)) {
     }
 }
 
-if($IsWindows){
+# $IsWindows is only defined in PowerShell Core 6+; on Windows PowerShell 5.1
+# it is $null (falsy), so fall back to checking the OS via [System.Environment].
+$runningOnWindows = $IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6 -and [System.Environment]::OSVersion.Platform -eq 'Win32NT')
+
+if ($runningOnWindows) {
     & $nugetPath pack $nuspecPath -OutputDirectory $outputDir -Verbosity detailed
 } else {
     # On Mac and Linux, we need to use mono to run the script
     # alternatively, we could use dotnet tool if available
-    # nuget pack $nuspecFile -OutputDirectory $outputDir -Verbosity detailed 2>&1   
+    # nuget pack $nuspecFile -OutputDirectory $outputDir -Verbosity detailed 2>&1
     mono $nugetPath pack $nuspecPath -OutputDirectory $outputDir -Verbosity detailed
 }
 
