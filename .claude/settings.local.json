@@ -40,7 +40,10 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(grep -E \"\\\\.py$|\\\\.json$|\\\\.lock$\")",
       "Bash(ls .github/copilot-instructions.md)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\AlessioAndriulo\\\\OneDrive - Agic Technology srl\\\\Desktop\\\\fabric-universal-connector\\\\Workload\" -Force | Select-Object -ExpandProperty Name | Where-Object {$_ -ne 'node_modules'})",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\AlessioAndriulo\\\\OneDrive - Agic Technology srl\\\\Desktop\\\\fabric-universal-connector\\\\backend\" -Force | Select-Object -ExpandProperty Name | Where-Object {$_ -ne '.git'})"
     ]
   }
 }

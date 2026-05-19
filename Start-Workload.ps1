@@ -1,6 +1,7 @@
 ﻿param (
     [switch]$NoDevServer,
     [switch]$NoDevGateway,
+    [switch]$NoBackend,
     [boolean]$InteractiveLogin = $true
 )
 
@@ -20,6 +21,23 @@ if (-not (Test-Path (Join-Path $workloadDir "node_modules"))) {
     Write-Host "node_modules not found - running npm install..." -ForegroundColor Yellow
     Push-Location $workloadDir
     try { npm install } finally { Pop-Location }
+}
+
+################################################
+# Start FastAPI backend (new window)
+################################################
+if (-not $NoBackend) {
+    $backendDir = Join-Path $rootDir "backend"
+    if (Test-Path $backendDir) {
+        Write-Host "Starting FastAPI backend (http://localhost:8000)..." -ForegroundColor Green
+        $backendCmd = "Set-Location '$backendDir'; uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+        Start-Process powershell.exe -ArgumentList "-NoExit", "-Command", $backendCmd
+        Write-Host "  FastAPI backend launched in a new window." -ForegroundColor Green
+        Write-Host ""
+    } else {
+        Write-Host "  backend/ directory not found — skipping backend startup." -ForegroundColor Yellow
+        Write-Host ""
+    }
 }
 
 ################################################
