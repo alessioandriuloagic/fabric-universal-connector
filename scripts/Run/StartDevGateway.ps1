@@ -18,10 +18,11 @@ if (Test-Path $buildManifestPackageScript) {
 ################################################
 # Starting the Frontend
 ################################################
+$runningOnWindows = $IsWindows -or ($PSVersionTable.PSVersion.Major -lt 6 -and [System.Environment]::OSVersion.Platform -eq 'Win32NT')
 $fileExe = ""
-if($IsWindows) { 
+if($runningOnWindows) {
     $fileExe = Join-Path $PSScriptRoot "..\..\tools\DevGateway\Microsoft.Fabric.Workload.DevGateway.exe"
-} else { 
+} else {
     $fileExe = Join-Path $PSScriptRoot "..\..\tools\DevGateway\Microsoft.Fabric.Workload.DevGateway.dll"
 }
 
@@ -53,7 +54,7 @@ $devWorkspaceId = $config.WorkspaceGuid
 $logLevel = "Information"
 
 
-if($IsWindows) { 
+if($runningOnWindows) {
     if ($InteractiveLogin -and [string]::IsNullOrEmpty($token)) {
         # Use interactive mode only when explicitly requested and no token available
         Write-Host "Starting DevGateway in interactive mode..." -ForegroundColor Green
@@ -63,7 +64,7 @@ if($IsWindows) {
         Write-Host "Starting DevGateway with token-based authentication..." -ForegroundColor Green
         & $fileExe -LogLevel $logLevel -DevMode:UserAuthorizationToken $token -DevMode:ManifestPackageFilePath $manifestPackageFilePath -DevMode:WorkspaceGuid $devWorkspaceId
     }
-} else {   
+} else {
     # Check if we're on ARM64 Mac and need x64 runtime
     $arch = uname -m
     if ($arch -eq "arm64") {

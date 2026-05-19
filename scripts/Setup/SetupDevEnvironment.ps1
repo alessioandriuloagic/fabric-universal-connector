@@ -131,48 +131,41 @@ $DevGatewayConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $DevGatewayFil
 Write-Host "  ✅ Created: $DevGatewayFile" -ForegroundColor Green
 
 Write-Host ""
-Write-Host "🎉 Developer environment setup completed!" -ForegroundColor Green
+Write-Host "Developer environment setup completed!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📋 Configuration Summary:" -ForegroundColor Yellow
+Write-Host "Configuration Summary:" -ForegroundColor Yellow
 Write-Host "  Development Workspace: $DevWorkspaceId" -ForegroundColor Cyan
 Write-Host "  Workload Name: $WorkloadName" -ForegroundColor Cyan
 Write-Host "  Frontend URL: $FrontendUrl" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "📁 Generated files:" -ForegroundColor Yellow
-Write-Host "  ✅ $DevGatewayFile" -ForegroundColor Green
+Write-Host "Generated files:" -ForegroundColor Yellow
+Write-Host "  $DevGatewayFile" -ForegroundColor Green
 if (Test-Path $ManifestPath) {
-    Write-Host "  ✅ $ManifestPath" -ForegroundColor Green
+    Write-Host "  $ManifestPath" -ForegroundColor Green
 }
 
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
-# Promt user to start the DevServer
 $startDevServerScript = Join-Path $PSScriptRoot "..\Run\StartDevServer.ps1"
 if (Test-Path $startDevServerScript) {
     $startDevServerScriptFull = (Resolve-Path $startDevServerScript).Path
-    Write-Host "  💻 Launch the DevServer locally:" -ForegroundColor Green
-    Write-Host "  `"$startDevServerScriptFull`""
+    Write-Host "  1. Launch the DevServer locally:" -ForegroundColor Green
+    Write-Host "     $startDevServerScriptFull"
 } else {
     Write-Host "StartDevServer.ps1 not found at $startDevServerScript" -ForegroundColor Red
 }
 
-# Prompt user to run StartDevGateway.ps1 with absolute path
 $startDevGatewayScript = Join-Path $PSScriptRoot "..\Run\StartDevGateway.ps1"
 if (Test-Path $startDevGatewayScript) {
     $startDevGatewayScriptFull = (Resolve-Path $startDevGatewayScript).Path
-    Write-Host ""
-    Write-Host "  💻 Start the DevGateway to register your dev instance with Fabric:" -ForegroundColor Green
-    Write-Host "  `"$startDevGatewayScriptFull`""
+    Write-Host "  2. Start the DevGateway:" -ForegroundColor Green
+    Write-Host "     $startDevGatewayScriptFull"
 } else {
     Write-Host "StartDevGateway.ps1 not found at $startDevGatewayScript" -ForegroundColor Red
 }
 
 Write-Host ""
-Write-Host "  💻 Make sure you have enabled the Fabric Developer mode in the Fabric portal." -ForegroundColor Green
-Write-Host "  Open https://app.fabric.microsoft.com/ and activate it under Settings > Developer settings > Fabric Developer mode."
-Write-Host "  Be aware this setting will not stay on forever. Check back if you have problems if it is still active."
+Write-Host "  3. Enable Fabric Developer mode in the portal:" -ForegroundColor Green
+Write-Host "     https://app.fabric.microsoft.com - Settings - Developer settings - Fabric Developer mode"
 Write-Host ""
-Write-Host "After following all the instructions above, you will see your workload being available in the Fabric portal."
-Write-Host "It will appear in the Workload Hub and items can be created in the workspace you have configured."
-
-Write-Host "Happy coding! 🚀"
+Write-Host "After following all the instructions above, your workload will be available in the Fabric portal."
