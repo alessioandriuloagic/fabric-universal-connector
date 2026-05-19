@@ -34,7 +34,9 @@ $templatePath = Join-Path $PSScriptRoot "..\..\Workload\Manifest"
 # Use a unique system temp folder to avoid file locking issues
 $guid = [Guid]::NewGuid().ToString()
 $tempPath = Join-Path ([System.IO.Path]::GetTempPath()) "Fabric_Manifest_Build_$guid"
-$outputDir = Join-Path $PSScriptRoot "..\..\build\Manifest\"
+$outputDir = Join-Path $PSScriptRoot "..\..\build\Manifest"
+if (-not (Test-Path $outputDir)) { New-Item -ItemType Directory -Path $outputDir -Force | Out-Null }
+$outputDir = (Resolve-Path $outputDir).Path
 
 Write-Host "Using temporary directory: $tempPath"
 New-Item -ItemType Directory -Path $tempPath -Force | Out-Null
@@ -161,8 +163,9 @@ if($ValidateFiles -eq $true) {
 ################################################
 # Build the current nuget package
 ################################################
-$nugetPath = Join-Path $PSScriptRoot "..\..\Workload\node_modules\nuget-bin\nuget.exe"
-$nuspecPath = Join-Path $tempPath "\ManifestPackage.nuspec"
+$nugetPath = Resolve-Path (Join-Path $PSScriptRoot "..\..\Workload\node_modules\nuget-bin\nuget.exe") -ErrorAction SilentlyContinue
+if (-not $nugetPath) { $nugetPath = Join-Path $PSScriptRoot "..\..\Workload\node_modules\nuget-bin\nuget.exe" }
+$nuspecPath = Join-Path $tempPath "ManifestPackage.nuspec"
 
 
 
