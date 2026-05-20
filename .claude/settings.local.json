@@ -47,7 +47,9 @@
       "Bash(npx tsc *)",
       "Bash(pip install *)",
       "Bash(python -c \"from pythonjsonlogger import jsonlogger; print\\('OK'\\)\")",
-      "PowerShell(Get-Process -Id 16024)"
+      "PowerShell(Get-Process -Id 16024)",
+      "Bash(git pull *)",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\AlessioAndriulo\\\\OneDrive - Agic Technology srl\\\\Desktop\\\\fabric-universal-connector\\\\workloads\\\\customer-insight-journey\\\\manifest\\\\assets\\\\locales\\\\en-US\")"
     ]
   }
 }

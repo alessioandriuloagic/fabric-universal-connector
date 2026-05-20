@@ -1,4 +1,6 @@
 ﻿param (
+    [ValidateSet("universal", "customer-insight-journey", "sales-crm", "business-central", "sql-db")]
+    [string]$Workload = "universal",
     [switch]$NoDevServer,
     [switch]$NoDevGateway,
     [switch]$NoBackend,
@@ -8,8 +10,10 @@
 $ErrorActionPreference = "Stop"
 $rootDir = $PSScriptRoot
 
+$WorkloadLabel = if ($Workload -eq "universal") { "Universal Connector" } else { $Workload }
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "  Fabric Universal Connector - Local Dev Launcher" -ForegroundColor Cyan
+Write-Host "  Workload: $WorkloadLabel" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -44,9 +48,10 @@ if (-not $NoBackend) {
 # Start webpack dev server (new window)
 ################################################
 if (-not $NoDevServer) {
-    Write-Host "Starting webpack dev server (http://localhost:3000)..." -ForegroundColor Green
-    $devServerScript = Join-Path $rootDir "scripts\Run\StartDevServer.ps1"
-    Start-Process powershell.exe -ArgumentList "-NoExit", "-File", "`"$devServerScript`""
+    Write-Host "Starting webpack dev server (workload: $Workload)..." -ForegroundColor Green
+    $npmScript = if ($Workload -eq "universal") { "npm start" } else { "npm run `"start:$Workload`"" }
+    $devCmd = "Set-Location '$workloadDir'; $npmScript"
+    Start-Process powershell.exe -ArgumentList "-NoExit", "-Command", $devCmd
     Write-Host "  Webpack dev server launched in a new window." -ForegroundColor Green
     Write-Host ""
 }

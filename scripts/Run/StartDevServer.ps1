@@ -1,19 +1,24 @@
+param (
+    [ValidateSet("universal", "customer-insight-journey", "sales-crm", "business-central", "sql-db")]
+    [string]$Workload = "universal"
+)
+
 ################################################
 # Starting the DevServer
 ################################################
 Write-Host ""
-Write-Host "Starting the DevServer ..."
-$devServerdDir = Join-Path $PSScriptRoot "..\..\Workload\devServer"
+Write-Host "Starting the DevServer (workload: $Workload)..."
+$devServerdDir = Join-Path $PSScriptRoot "..\..\Workload"
 Push-Location $devServerdDir
 try {
-    # If running in Codespaces, use the low memory version by default to prevent OOM errors
     if ($env:CODESPACES -eq "true") {
         Write-Host "Running in Codespace environment - using low memory configuration to prevent OOM errors"
         $env:NODE_ENV = "codespace"
         npm run start:codespace
-    } else {
-        # Use regular start for non-codespace environments
+    } elseif ($Workload -eq "universal") {
         npm start
+    } else {
+        npm run "start:$Workload"
     }
 } finally {
     Pop-Location

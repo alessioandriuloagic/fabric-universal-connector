@@ -11,6 +11,7 @@ console.log('process.env.WORKLOAD_NAME: ' + process.env.WORKLOAD_NAME);
 console.log('process.env.ITEM_NAMES: ' + process.env.ITEM_NAMES);
 console.log('process.env.WORKLOAD_VERSION: ' + process.env.WORKLOAD_VERSION);
 console.log('process.env.LOG_LEVEL: ' + process.env.LOG_LEVEL);
+console.log('process.env.REACT_APP_WORKLOAD_ID: ' + (process.env.REACT_APP_WORKLOAD_ID || 'universal'));
 console.log('*********************************************************************');
 
 
@@ -30,6 +31,7 @@ module.exports = {
             "process.env.WORKLOAD_VERSION": JSON.stringify(process.env.WORKLOAD_VERSION),
             "process.env.LOG_LEVEL": JSON.stringify(process.env.LOG_LEVEL),
             "process.env.ENABLE_PLAYGROUND": JSON.stringify(process.env.ENABLE_PLAYGROUND || 'false'),
+            "process.env.REACT_APP_WORKLOAD_ID": JSON.stringify(process.env.REACT_APP_WORKLOAD_ID || 'universal'),
         }),
         new Webpack.ProvidePlugin({
             process: 'process/browser.js',
