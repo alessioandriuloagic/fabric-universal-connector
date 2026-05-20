@@ -141,7 +141,7 @@ export function FileTree(props: OneLakeViewFilesTreeProps) {
         return root;
     };
 
-    const handleCreateFolder = async (metadata: FileMetadata) => {
+    const handleCreateFolder = async (metadata?: FileMetadata) => {
         if (onCreateFolderCallback) {
             // Ensure the path includes the Files prefix since FileTree is within the Files directory
             const fullPath = metadata ? metadata.relativePath : "Files";

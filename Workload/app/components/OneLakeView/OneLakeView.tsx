@@ -59,11 +59,11 @@ import { useTranslation } from "react-i18next";
  */
 export function OneLakeView(props: OneLakeViewProps) {
   const { t } = useTranslation();
-  const [selectedItem, setSelectedItem] = useState<OneLakeViewItem>(null);
-  const [tablesInItem, setTablesInItem] = useState<TableMetadata[]>(null);
-  const [filesInItem, setFilesInItem] = useState<FileMetadata[]>(null);
-  const [selectedTablePath, setSelectedTablePath] = useState<string>(null);
-  const [selectedFilePath, setSelectedFilePath] = useState<string>(null);
+  const [selectedItem, setSelectedItem] = useState<OneLakeViewItem | null>(null);
+  const [tablesInItem, setTablesInItem] = useState<TableMetadata[] | null>(null);
+  const [filesInItem, setFilesInItem] = useState<FileMetadata[] | null>(null);
+  const [selectedTablePath, setSelectedTablePath] = useState<string | null>(null);
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null);
   const [loadingStatus, setLoadingStatus] = useState<LoadingStatus>("idle");
   const [hasSchema, setHasSchema] = useState<boolean>(false);
   const [openFilesMenu, setOpenFilesMenu] = useState<boolean>(false);
@@ -114,7 +114,7 @@ export function OneLakeView(props: OneLakeViewProps) {
     }
   }, [props.config.refreshTrigger, selectedItem]);
 
-  async function setTablesAndFiles(additionalScopesToConsent: string): Promise<boolean> {
+  async function setTablesAndFiles(additionalScopesToConsent: string | null): Promise<boolean> {
     try {
       if (!selectedItem || !selectedItem.workspaceId || !selectedItem.id) {
         console.error("OneLakeView: Cannot fetch data - selectedItem is invalid:", selectedItem);
@@ -142,7 +142,7 @@ export function OneLakeView(props: OneLakeViewProps) {
   }
 
   function tableSelectedCallback(tableSelected: TableMetadata) {
-    const tableFilePath = OneLakeStorageClient.getPath(selectedItem.workspaceId, selectedItem.id, tableSelected.relativePath);
+    const tableFilePath = OneLakeStorageClient.getPath(selectedItem!.workspaceId, selectedItem!.id, tableSelected.relativePath);
     // Update selection state without modifying the tables array
     setSelectedTablePath(tableSelected.relativePath); // Keep original path for selection comparison
     setSelectedFilePath(null); // Clear file selection when table is selected
@@ -152,7 +152,7 @@ export function OneLakeView(props: OneLakeViewProps) {
   }
 
   async function fileSelectedCallback(fileSelected: FileMetadata) {
-    const fullFilePath = OneLakeStorageClient.getPath(selectedItem.workspaceId, selectedItem.id, fileSelected.relativePath);
+    const fullFilePath = OneLakeStorageClient.getPath(selectedItem!.workspaceId, selectedItem!.id, fileSelected.relativePath);
     // Update selection state without modifying the files array
     setSelectedFilePath(fileSelected.relativePath);
     setSelectedTablePath(null); // Clear table selection when file is selected
@@ -176,7 +176,7 @@ export function OneLakeView(props: OneLakeViewProps) {
     }
 
     try {
-      const fullFilePath = OneLakeStorageClient.getPath(selectedItem.workspaceId, selectedItem.id, filePath);
+      const fullFilePath = OneLakeStorageClient.getPath(selectedItem!.workspaceId, selectedItem!.id, filePath);
       const oneLakeClient = new OneLakeStorageClient(props.workloadClient);
       await oneLakeClient.deleteFile(fullFilePath);
 
@@ -208,7 +208,7 @@ export function OneLakeView(props: OneLakeViewProps) {
     }
 
     try {
-      const fullFolderPath = OneLakeStorageClient.getPath(selectedItem.workspaceId, selectedItem.id, shortcutPath);
+      const fullFolderPath = OneLakeStorageClient.getPath(selectedItem!.workspaceId, selectedItem!.id, shortcutPath);
       const oneLakeClient = new OneLakeStorageClient(props.workloadClient);
       await oneLakeClient.deleteFile(fullFolderPath);
       
@@ -235,7 +235,7 @@ export function OneLakeView(props: OneLakeViewProps) {
 
     try {
       const folderPath = parentPath ? `${parentPath}/${folderName.trim()}` : folderName.trim();
-      const fullFolderPath = OneLakeStorageClient.getPath(selectedItem.workspaceId, selectedItem.id, folderPath);
+      const fullFolderPath = OneLakeStorageClient.getPath(selectedItem!.workspaceId, selectedItem!.id, folderPath);
       console.log(`Creating folder at path: ${fullFolderPath}`);
       
       const oneLakeClient = new OneLakeStorageClient(props.workloadClient);
@@ -289,8 +289,8 @@ export function OneLakeView(props: OneLakeViewProps) {
       // Create the OneLake shortcut using the client
       const shortcutClient = new OneLakeShortcutClient(props.workloadClient);
       await shortcutClient.createOneLakeShortcut(
-        selectedItem.workspaceId,
-        selectedItem.id,
+        selectedItem!.workspaceId,
+        selectedItem!.id,
         shortcutName,
         parentPath,
         targetItemAndPath.workspaceId,
@@ -464,14 +464,14 @@ export function OneLakeView(props: OneLakeViewProps) {
           <Tree className="onelake-view__subtree" selectionMode="single">
             {hasSchema &&
               <TableTreeWithSchema
-                allTablesInItem={tablesInItem}
-                selectedTablePath={selectedTablePath}
+                allTablesInItem={tablesInItem ?? []}
+                selectedTablePath={selectedTablePath ?? undefined}
                 onSelectTableCallback={tableSelectedCallback} />
             }
             {!hasSchema &&
               <TableTreeWithoutSchema
-                allTablesInItem={tablesInItem}
-                selectedTablePath={selectedTablePath}
+                allTablesInItem={tablesInItem ?? []}
+                selectedTablePath={selectedTablePath ?? undefined}
                 onSelectTableCallback={tableSelectedCallback} />
             }
           </Tree>
@@ -529,8 +529,8 @@ export function OneLakeView(props: OneLakeViewProps) {
           </Menu>
           <Tree className="onelake-view__subtree" selectionMode="single">
             <FileTree
-              allFilesInItem={filesInItem}
-              selectedFilePath={selectedFilePath}
+              allFilesInItem={filesInItem ?? []}
+              selectedFilePath={selectedFilePath ?? undefined}
               onSelectFileCallback={fileSelectedCallback}
               onDeleteFileCallback={deleteFileCallback}
               onDeleteFolderCallback={deleteShortcutCallback}

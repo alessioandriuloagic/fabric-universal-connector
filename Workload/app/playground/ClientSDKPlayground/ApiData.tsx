@@ -95,7 +95,7 @@ export function ApiData(props: TabContentProps) {
                         placeholder="Item types"
                         value={dataHubMsgBoxType}
                         data-testid="api-playground-data-hub-supported-types"
-                        onOptionSelect={(_, opt) => dispatch(setDataHubMsgBoxType(opt.optionValue))}
+                        onOptionSelect={(_, opt) => dispatch(setDataHubMsgBoxType(opt.optionValue ?? ''))}
                     >
                         {dataHubMsgBoxTypes.map((option) => (
                             <Option key={option}>{option}</Option>

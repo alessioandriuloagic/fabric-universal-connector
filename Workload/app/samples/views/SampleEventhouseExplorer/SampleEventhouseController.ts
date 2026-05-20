@@ -15,7 +15,7 @@ const kqlScope = "https://api.fabric.microsoft.com/KQLDatabase.ReadWrite.All";
  * @param {WorkloadClientAPI} workloadClient - An instance of the WorkloadClientAPI.
  * @returns {Promise<EventhouseItemMetadata>} A Promise that resolves to an object containing the eventhouse metadata.
  */
-export async function getEventhouseItem(workloadClient: WorkloadClientAPI, workspaceId: string, eventhouseId: string): Promise<EventhouseItemMetadata> {
+export async function getEventhouseItem(workloadClient: WorkloadClientAPI, workspaceId: string, eventhouseId: string): Promise<EventhouseItemMetadata | null> {
     try {
         const accessToken: AccessToken = await callAcquireFrontendAccessToken(workloadClient, eventHouseScope);
         const response: Response = await fetch(EnvironmentConstants.FabricApiBaseUrl + `/v1/workspaces/${workspaceId}/eventhouses/${eventhouseId}`,
@@ -53,8 +53,8 @@ export async function getEventhouseItem(workloadClient: WorkloadClientAPI, works
  * @param {WorkloadClientAPI} workloadClient - An instance of the WorkloadClientAPI.
  * @returns {Promise<object[]>} A Promise that resolves to an object containing the queries result.
  */
-export async function executeQuery(workloadClient: WorkloadClientAPI, queryUrl: string, databaseName: string, query: string, 
-    setClientRequestId: (id: string) => void) : Promise<object[]> {
+export async function executeQuery(workloadClient: WorkloadClientAPI, queryUrl: string, databaseName: string, query: string,
+    setClientRequestId: (id: string | undefined) => void) : Promise<object[] | null> {
     try {
 
         //KqlDatabases/query

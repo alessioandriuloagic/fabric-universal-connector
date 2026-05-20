@@ -32,9 +32,9 @@ export function ApiAuthenticationFrontend({ workloadClient }: PageProps) {
             <div className="authButton">
                 <Button className="authButton" appearance="primary" onClick={
                     () => callAcquireFrontendAccessToken(workloadClient, scopes)
-                        .then(result => setToken(result.token))
+                        .then(result => setToken(result.token ?? ''))
                         .catch((errorResult) => {
-                            setToken(null);
+                            setToken('');
                             console.error("Error acquiring token:", errorResult);
                             switch (errorResult.error) {
                                 case WorkloadAuthError.WorkloadConfigError:
@@ -59,7 +59,7 @@ export function ApiAuthenticationFrontend({ workloadClient }: PageProps) {
                 <Input size="medium" placeholder="An API endpoint (e.g. https://onelake.dfs.fabric.microsoft.com/<workspace>...)" onChange={e => setServerUrl(e.target.value)} />
             </Field>
             <Field label="Http method" orientation="horizontal" className="field">
-                <Combobox placeholder="method" onOptionSelect={(_, opt) => setHttpMethod(opt.optionValue)}>
+                <Combobox placeholder="method" onOptionSelect={(_, opt) => setHttpMethod(opt.optionValue ?? '')}>
                     {httpMethods.map((option) => (
                         <Option key={option}>
                             {option}

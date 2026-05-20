@@ -8,10 +8,11 @@ export function TableTreeWithSchema(props: OneLakeViewTablesTreeProps) {
     // group the tables by schema
     const tablesInOneLakeGroupedBySchema: { [key: string]: TableMetadata[] } =
     allTablesInOneLake.reduce((acc: { [key: string]: TableMetadata[] }, table) => {
-            if (!acc[table.schema]) {
-                acc[table.schema] = [];
+            const schema = table.schema ?? 'default';
+            if (!acc[schema]) {
+                acc[schema] = [];
             }
-            acc[table.schema].push(table);
+            acc[schema].push(table);
             return acc;
         }, {});
     return (

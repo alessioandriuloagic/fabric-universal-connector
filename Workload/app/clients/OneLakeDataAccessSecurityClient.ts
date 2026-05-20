@@ -215,7 +215,7 @@ export class OneLakeDataAccessSecurityClient extends FabricPlatformClient {
     const allRoles = await this.getAllDataAccessRoles(workspaceId, itemId);
     
     return allRoles.filter(role => {
-      return role.members.microsoftEntraMembers?.some(member => member.objectId === objectId) ||
+      return role.members?.microsoftEntraMembers?.some(member => member.objectId === objectId) ||
              false; // Could extend to check fabricItemMembers if needed
     });
   }

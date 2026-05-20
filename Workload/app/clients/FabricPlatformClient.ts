@@ -80,7 +80,7 @@ export class FabricPlatformError extends Error {
 export abstract class FabricPlatformClient {
   protected workloadClient?: WorkloadClientAPI;
   protected baseUrl: string = EnvironmentConstants.FabricApiBaseUrl;
-  protected scopes: string;
+  protected scopes!: string;
   protected scopePair?: ScopePair;  // Optional scope pair for method-based selection
   protected authService: FabricAuthenticationService;
 

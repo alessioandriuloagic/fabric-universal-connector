@@ -81,12 +81,12 @@ export async function handleException(
     action: (...args: any[]) => Promise<any>,
     ...actionArgs: any[]
 ): Promise<any> {
-    var parsedException: WorkloadErrorDetails = parseExceptionErrorResponse(exception);
+    var parsedException: WorkloadErrorDetails | null = parseExceptionErrorResponse(exception);
     
     // error could not be handled, show the error dialog
     let message = parsedException?.Message || "Unknown error occurred";
     const errorCode = parsedException?.ErrorCode ?? exception.error?.message?.code;
-    let title = getAdditionalParameterValue(parsedException, "title") ?? `Could not handle exception: ${errorCode}`;
+    let title = (parsedException ? getAdditionalParameterValue(parsedException, "title") : undefined) ?? `Could not handle exception: ${errorCode}`;
 
     if (exception.error?.message?.code === "PowerBICapacityValidationFailed") { 
         message = `Your workspace is assigned to invalid capacity.\n` +
@@ -104,11 +104,11 @@ export async function handleException(
     return null;
 }
 
-function getAdditionalParameterValue(parsedException: WorkloadErrorDetails, parameterName: string): string {
+function getAdditionalParameterValue(parsedException: WorkloadErrorDetails, parameterName: string): string | undefined {
     return parsedException?.MoreDetails?.[0]?.AdditionalParameters?.find(ap => ap.Name == parameterName)?.Value;
 }
 
-function parseExceptionErrorResponse(exception: any): WorkloadErrorDetails {
+function parseExceptionErrorResponse(exception: any): WorkloadErrorDetails | null {
     const errorResponse = exception?.error?.message?.["pbi.error"]?.parameters?.ErrorResponse;
     if (!errorResponse) {
         return null;

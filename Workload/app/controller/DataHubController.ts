@@ -93,6 +93,9 @@ export async function callDatahubOpen(
 
     const selectedItem = result.selectedDatahubItem[0];
     const { itemObjectId, workspaceObjectId } = selectedItem;
+    if (!selectedItem.datahubItemUI) {
+        return null;
+    }
     const { displayName, description } = selectedItem.datahubItemUI;
     return {
         id: itemObjectId,

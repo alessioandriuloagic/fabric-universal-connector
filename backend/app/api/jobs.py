@@ -12,8 +12,6 @@ Fabric polls GET until status is terminal.
 
 Ref: https://learn.microsoft.com/en-us/fabric/workload-development-kit/extensibility-back-end
 """
-from __future__ import annotations
-
 import asyncio
 import json
 import logging

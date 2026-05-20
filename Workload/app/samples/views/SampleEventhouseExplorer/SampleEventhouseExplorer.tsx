@@ -21,11 +21,11 @@ import { getEventhouseItem, executeQuery } from "./SampleEventhouseController";
 
 
 export function EventhouseExplorerComponent({ workloadClient }: PageProps) {
-    const [selectedEventhouse, setSelectedEventhouse] = useState<Item>(undefined);
-    const [selectedEventhouseItemMetadata, setSelectedEventhouseItemMetadata] = useState<EventhouseItemMetadata>(undefined);
-     const [isDirtyEventhouse, setDirtyEventhouse] = useState<boolean>(false);
-    const [selectedDatabaseForQuery, setSelectedDatabaseForQuery] = useState<string>(undefined);
-    const [selectedQueryToExecute, setSelectedQueryToExecute] = useState<string>(undefined);
+    const [selectedEventhouse, setSelectedEventhouse] = useState<Item | undefined>(undefined);
+    const [selectedEventhouseItemMetadata, setSelectedEventhouseItemMetadata] = useState<EventhouseItemMetadata | undefined>(undefined);
+    const [isDirtyEventhouse, setDirtyEventhouse] = useState<boolean>(false);
+    const [selectedDatabaseForQuery, setSelectedDatabaseForQuery] = useState<string | undefined>(undefined);
+    const [selectedQueryToExecute, setSelectedQueryToExecute] = useState<string | undefined>(undefined);
     const [queryClientRequestId, setQueryClientRequestId] = useState<string | undefined>(undefined);
     const [queryResult, setQueryResult] = useState<string>("");
 
@@ -92,9 +92,9 @@ export function EventhouseExplorerComponent({ workloadClient }: PageProps) {
       if (selectedEventhouse) {
           const result = await executeQuery(
               workloadClient,
-              selectedEventhouseItemMetadata?.properties.queryServiceUri,
-              selectedDatabaseForQuery,
-              selectedQueryToExecute,
+              selectedEventhouseItemMetadata?.properties.queryServiceUri ?? '',
+              selectedDatabaseForQuery ?? '',
+              selectedQueryToExecute ?? '',
               setQueryClientRequestId,
               
           );
@@ -112,8 +112,8 @@ export function EventhouseExplorerComponent({ workloadClient }: PageProps) {
             const query = `.cancel query '${queryClientRequestId}'`;
             const result = await executeQuery(
               workloadClient,
-              selectedEventhouseItemMetadata?.properties.queryServiceUri,
-              selectedDatabaseForQuery,
+              selectedEventhouseItemMetadata?.properties.queryServiceUri ?? '',
+              selectedDatabaseForQuery ?? '',
               query,
               setQueryClientRequestId              
           );

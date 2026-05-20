@@ -40,7 +40,7 @@ Get-Content $EnvDevFile | Where-Object { $_ -notmatch '^#' -and $_ -notmatch '^$
 }
 
 # Validate required configuration
-$RequiredKeys = @('WORKLOAD_NAME', 'FRONTEND_URL')
+$RequiredKeys = @('WORKLOAD_NAME', 'FRONTEND_URL', 'BACKEND_URL')
 foreach ($Key in $RequiredKeys) {
     if (-not $EnvConfig.ContainsKey($Key)) {
         Write-Error "Required configuration '$Key' not found in $EnvDevFile"
@@ -48,7 +48,7 @@ foreach ($Key in $RequiredKeys) {
     }
 }
 
-# Extract the frontend url 
+# Extract the frontend url
 $FrontendBaseUrl = $EnvConfig['FRONTEND_URL']
 
 # Get workspace ID from user or environment variable
@@ -117,13 +117,13 @@ Write-Host "🔧 Generating DevGateway configuration..." -ForegroundColor Blue
 
 $WorkloadName = $EnvConfig['WORKLOAD_NAME']
 $WorkloadVersion = $EnvConfig['WORKLOAD_VERSION']
-$FrontendUrl = $EnvConfig['FRONTEND_URL']
+$BackendUrl = $EnvConfig['BACKEND_URL']
 $ManifestPath = Join-Path $ManifestDir "$WorkloadName.$WorkloadVersion.nupkg"
 
 $DevGatewayConfig = @{
     WorkspaceGuid = $DevWorkspaceId
     ManifestPackageFilePath = $ManifestPath
-    WorkloadEndpointURL = $FrontendUrl
+    WorkloadEndpointURL = $BackendUrl
 }
 
 $DevGatewayFile = Join-Path $DevGatewayDir "workload-dev-mode.json"
@@ -136,7 +136,7 @@ Write-Host ""
 Write-Host "Configuration Summary:" -ForegroundColor Yellow
 Write-Host "  Development Workspace: $DevWorkspaceId" -ForegroundColor Cyan
 Write-Host "  Workload Name: $WorkloadName" -ForegroundColor Cyan
-Write-Host "  Frontend URL: $FrontendUrl" -ForegroundColor Cyan
+Write-Host "  Backend URL: $BackendUrl" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Generated files:" -ForegroundColor Yellow
 Write-Host "  $DevGatewayFile" -ForegroundColor Green

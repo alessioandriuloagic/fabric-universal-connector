@@ -53,7 +53,7 @@ export async function callDialogOpenMsgBox(
     title: string,
     content: string,
     actionButtonsNames: string[],
-    link?: string): Promise<string> {
+    link?: string): Promise<string | undefined> {
 
     // Create an array of ActionButton objects based on the provided action button names
     const actionButtons: ActionButton[] = actionButtonsNames.map(name => ({ name, label: name }));

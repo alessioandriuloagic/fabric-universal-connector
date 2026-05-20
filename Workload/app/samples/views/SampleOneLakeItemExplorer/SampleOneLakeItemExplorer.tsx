@@ -42,7 +42,7 @@ export interface OneLakeItemExplorerComponentProps extends PageProps {
  * The core tree functionality is provided by the OneLakeItemExplorer control.
  */
 export function OneLakeItemExplorerComponent(props: OneLakeItemExplorerComponentProps) {
-  const [selectedItem, setSelectedItem] = useState<OneLakeItemExplorerItem>(null);
+  const [selectedItem, setSelectedItem] = useState<OneLakeItemExplorerItem | null>(null);
   const [isExplorerVisible, setIsExplorerVisible] = useState<boolean>(true);
 
   // Initialize selectedItem from props.config.initialItem
@@ -107,7 +107,7 @@ export function OneLakeItemExplorerComponent(props: OneLakeItemExplorerComponent
               workloadClient={props.workloadClient}
               config={{
                 mode: props.config.mode,
-                initialItem: selectedItem,
+                initialItem: selectedItem ?? undefined,
                 allowedItemTypes: props.config.allowedItemTypes,
                 allowItemSelection: props.config.allowItemSelection,
                 refreshTrigger: props.config.refreshTrigger

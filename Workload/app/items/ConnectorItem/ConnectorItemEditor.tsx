@@ -73,7 +73,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
     try {
       const loaded = await getWorkloadItem<ConnectorItemDefinition>(
         workloadClient,
-        pageContext.itemObjectId
+        pageContext.itemObjectId ?? ''
       );
       setItem(loaded);
     } catch {

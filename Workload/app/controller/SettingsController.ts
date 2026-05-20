@@ -55,7 +55,7 @@ export async function callSettingsOnChange(
 export async function callOpenSettings(
     workloadClient: WorkloadClientAPI,
     item: Item,
-    selectedSettingId?: string): Promise<OpenUIResult> {
+    selectedSettingId?: string): Promise<OpenUIResult | null> {
 
     const config: OpenItemSettingsConfig = {
         item: {

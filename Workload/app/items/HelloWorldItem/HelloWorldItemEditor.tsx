@@ -62,7 +62,7 @@ export function HelloWorldItemEditor(props: PageProps) {
     }
 
     setIsLoading(true);
-    var LoadedItem: ItemWithDefinition<HelloWorldItemDefinition> = undefined;
+    var LoadedItem: ItemWithDefinition<HelloWorldItemDefinition> | undefined = undefined;
     if (pageContext.itemObjectId) {
       // for Edit scenario we get the itemObjectId and then load the item via the workloadClient SDK
       try {
@@ -131,7 +131,7 @@ export function HelloWorldItemEditor(props: PageProps) {
     try {
       successResult = await saveWorkloadItem<HelloWorldItemDefinition>(
         workloadClient,
-        { ...item, definition: definitionToSave },
+        { ...item!, definition: definitionToSave },
       );
     } catch (error) {
       errorMessage = error?.message;
@@ -141,21 +141,21 @@ export function HelloWorldItemEditor(props: PageProps) {
 
     if (wasSaved) {
       // Only update item.definition when save succeeds
-      item.definition = definitionToSave;
+      item!.definition = definitionToSave;
       setCurrentDefinition(definitionToSave);
       setSaveStatus(SaveStatus.Saved);
       callNotificationOpen(
         props.workloadClient,
         t("ItemEditor_Saved_Notification_Title"),
-        t("ItemEditor_Saved_Notification_Text", { itemName: item.displayName }),
+        t("ItemEditor_Saved_Notification_Text", { itemName: item!.displayName }),
         undefined,
         undefined
       );
     } else {
       setSaveStatus(SaveStatus.NotSaved);
       const failureMessage = errorMessage
-        ? `${t("ItemEditor_SaveFailed_Notification_Text", { itemName: item.displayName })} ${errorMessage}.`
-        : t("ItemEditor_SaveFailed_Notification_Text", { itemName: item.displayName });
+        ? `${t("ItemEditor_SaveFailed_Notification_Text", { itemName: item?.displayName })} ${errorMessage}.`
+        : t("ItemEditor_SaveFailed_Notification_Text", { itemName: item?.displayName });
         
       callNotificationOpen(
         props.workloadClient,
@@ -264,7 +264,7 @@ export function HelloWorldItemEditor(props: PageProps) {
         <HelloWorldItemRibbon
           {...props}
           viewContext={context}
-          isSaveButtonEnabled={isSaveEnabled(context.currentView)}
+          isSaveButtonEnabled={isSaveEnabled(context.currentView ?? '')}
           saveItemCallback={saveItem}
           openSettingsCallback={handleOpenSettings}
         />

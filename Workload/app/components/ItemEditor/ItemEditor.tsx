@@ -425,9 +425,9 @@ export function ItemEditor(props: ItemEditorProps) {
     
     // Legacy function pattern support
     if (typeof notifications === 'function') {
-      return notifications(currentView);
+      return notifications(currentView ?? '');
     }
-    
+
     // Static notification registration (preferred)
     if (Array.isArray(notifications)) {
       // Find notifications that should show in current view
@@ -437,7 +437,7 @@ export function ItemEditor(props: ItemEditorProps) {
           return true;
         }
         // Check if current view is in the showInViews array
-        return notification.showInViews.includes(currentView);
+        return notification.showInViews.includes(currentView ?? '');
       });
       
       // Return the first active notification (can be enhanced to support multiple)

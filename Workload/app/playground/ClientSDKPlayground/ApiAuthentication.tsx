@@ -57,7 +57,7 @@ export function ApiAuthentication({ workloadClient }: PageProps) {
                                 className="api-authentication-input"
                                 placeholder="method"
                                 value={httpMethod}
-                                onOptionSelect={(_, opt) => dispatch(setHttpMethod(opt.optionValue))}
+                                onOptionSelect={(_, opt) => dispatch(setHttpMethod(opt.optionValue ?? ''))}
                             >
                                 {httpMethods.map((option) => (
                                     <Option key={option}>

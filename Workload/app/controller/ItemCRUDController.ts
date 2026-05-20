@@ -57,7 +57,7 @@ export async function callGetItem(
         return item;
     } catch (exception) {
         console.error("Failed locating item with ObjectID %s", itemId, exception);
-        return undefined;
+        return undefined as unknown as GetItemResult;
     }
 }
 
@@ -108,7 +108,7 @@ export async function getItemDefinition<T>(
         if (workloadITem && workloadITem.definition) {
             return workloadITem.definition;
         }
-        return undefined  
+        return undefined as unknown as T;
 }
 
 /** 
@@ -159,8 +159,8 @@ export async function saveWorkloadItem<T>(
     const definitionParts: ItemDefinitionPart[] = [defaultDefinitionPart];
     
     // Copy all additional definition parts by decoding and adding them
-    if (itemWithDefinition.additionalDefinitionParts?.length > 0) {
-        for (const additionalPart of itemWithDefinition.additionalDefinitionParts) {
+    if ((itemWithDefinition.additionalDefinitionParts?.length ?? 0) > 0) {
+        for (const additionalPart of itemWithDefinition.additionalDefinitionParts ?? []) {
             definitionParts.push(additionalPart)
         }
     }
@@ -195,7 +195,7 @@ export async function callUpdateItemDefinition(
 
     const itemDefinitions: UpdateItemDefinitionPayload =  {
         definition: {
-            format: undefined,
+            format: undefined as unknown as string,
             parts: definitionParts
         }
     }  
@@ -208,7 +208,7 @@ export async function callUpdateItemDefinition(
         });
     } catch (exception) {
         console.error("Failed updating Item definition %s", itemId, exception);
-        return undefined
+        return undefined as unknown as UpdateItemDefinitionResult;
     }
 }
 
@@ -233,7 +233,7 @@ export async function callGetItemDefinition(
         return itemDefinition;
     } catch (exception) {
         console.error("Failed getting Item definition %s", itemId, exception);
-        return undefined;
+        return undefined as unknown as GetItemDefinitionResult;
     }
 }
 
@@ -253,7 +253,7 @@ export function convertGetItemResultToWorkloadItem<T>(
         itemResult: GetItemResult,
         itemDefinitionResult: GetItemDefinitionResult, 
         defaultDefinition?: T): ItemWithDefinition<T> {            
-    let payload: T;
+    let payload: T | undefined;
     let itemPlatformMetadata: Item | undefined;
     let additionalParts: ItemDefinitionPart[] = [];
     
@@ -277,10 +277,10 @@ export function convertGetItemResultToWorkloadItem<T>(
     }
 
     return {
-        id: itemResult?.item.id,
-        workspaceId: itemResult?.item.workspaceId,
-        type: itemPlatformMetadata?.type ?? itemResult?.item.type,
-        displayName: itemPlatformMetadata?.displayName ?? itemResult?.item.displayName,
+        id: itemResult?.item.id ?? '',
+        workspaceId: itemResult?.item.workspaceId ?? '',
+        type: itemPlatformMetadata?.type ?? itemResult?.item.type ?? '',
+        displayName: itemPlatformMetadata?.displayName ?? itemResult?.item.displayName ?? '',
         description: itemPlatformMetadata?.description ?? itemResult?.item.description,
         definition: payload ?? defaultDefinition,
         additionalDefinitionParts: additionalParts,
@@ -323,7 +323,7 @@ export function buildPublicAPIPayloadWithParts(
     }));
     return {
         definition: {
-            format: undefined,
+            format: undefined as unknown as string,
             parts: itemDefinitionParts
         }
     };
@@ -337,8 +337,8 @@ export function buildPublicAPIPayloadWithParts(
  * @returns {GetItemDefinitionResult} - The structured item definition result.
  * @throws {Error} - If the response format is invalid or if parsing fails.
  */
-export function convertGetDefinitionResponseToItemDefinition(responseBody: string): GetItemDefinitionResult {
-    let itemDefinition: GetItemDefinitionResult;
+export function convertGetDefinitionResponseToItemDefinition(responseBody: string): GetItemDefinitionResult | undefined {
+    let itemDefinition: GetItemDefinitionResult | undefined;
     try {
         const responseItemDefinition = JSON.parse((responseBody));
         if (!responseItemDefinition?.definition?.parts || !Array.isArray(responseItemDefinition.definition.parts)) {
@@ -346,7 +346,7 @@ export function convertGetDefinitionResponseToItemDefinition(responseBody: strin
         }
         itemDefinition = {
             definition: {
-                format: undefined,
+                format: undefined as unknown as string,
                 parts: responseItemDefinition.definition.parts.map((part: ItemDefinitionPart) => ({
                     path: part.path,
                     payload: part.payload,

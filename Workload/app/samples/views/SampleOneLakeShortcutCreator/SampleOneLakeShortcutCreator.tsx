@@ -27,10 +27,10 @@ export function OneLakeShortcutCreator(props: OneLakeShortcutCreatorProps) {
   // Source and target item states
   const [shortcutName, setShortcutName] = useState<string>("");
 
-  const [sourceItem, setSourceItem] = useState<Item>(null);
+  const [sourceItem, setSourceItem] = useState<Item | null>(null);
   const [sourceShortcutPath, setSourceShortcutPath] = useState<string>("Files");
 
-  const [targetItem, setTargetItem] = useState<Item>(null);
+  const [targetItem, setTargetItem] = useState<Item | null>(null);
   const [targetShortcutPath, setTargetShortcutPath] = useState<string>("Files");
   
   // UI states
@@ -42,7 +42,7 @@ export function OneLakeShortcutCreator(props: OneLakeShortcutCreatorProps) {
   const selectSourceItem = async () => {
     const result = await callDatahubOpen(
       props.workloadClient,
-      ["Lakehouse", ...props.allowedSourceItemTypes],
+      ["Lakehouse", ...(props.allowedSourceItemTypes ?? [])],
       "Select source item for shortcut",
       false
     );
@@ -58,7 +58,7 @@ export function OneLakeShortcutCreator(props: OneLakeShortcutCreatorProps) {
   const selectTargetItem = async () => {
     const result = await callDatahubOpen(
       props.workloadClient,
-      ["Lakehouse", ...props.allowedTargetItemTypes],
+      ["Lakehouse", ...(props.allowedTargetItemTypes ?? [])],
       "Select target item for shortcut",
       false
     );

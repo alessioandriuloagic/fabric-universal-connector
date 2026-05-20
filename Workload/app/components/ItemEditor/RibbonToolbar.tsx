@@ -194,7 +194,7 @@ export const RibbonToolbar: React.FC<RibbonToolbarProps> = ({
           ) : (
             // Render regular action using RibbonToolbarAction
             <RibbonToolbarAction
-              icon={action.icon}
+              icon={action.icon!}
               label={action.label}
               tooltip={action.tooltip}
               onClick={action.onClick}

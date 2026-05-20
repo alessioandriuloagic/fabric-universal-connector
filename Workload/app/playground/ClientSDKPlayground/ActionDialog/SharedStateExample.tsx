@@ -23,7 +23,7 @@ export function SharedStateExample(props: TabContentProps) {
 
         await callDialogOpen(
             workloadClient,
-            sampleWorkloadName,
+            sampleWorkloadName ?? '',
             '/playground-shared-state-page',
             360 /* width */,
             165 /* height */,

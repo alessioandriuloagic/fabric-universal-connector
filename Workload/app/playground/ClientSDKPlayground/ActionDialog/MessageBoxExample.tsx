@@ -93,7 +93,7 @@ export function MessageBoxExample(props: TabContentProps) {
                 placeholder="Buttons count"
                 value={apiDialogMsgboxButtonCount.toString()}
                 onOptionSelect={(_, opt) =>
-                    dispatch(updateButtonCount(parseInt(opt.optionValue)))
+                    dispatch(updateButtonCount(parseInt(opt.optionValue ?? '0')))
                 }
             >
                 {msgboxButtonCountOptions.map((option) => (
