@@ -92,9 +92,9 @@
         }
       ],
       "supportLink": {
-        "documentation": {"url": "https://example.com/documentation"},
+        "documentation": {"url": "https://github.com/agic-technology/fabric-universal-connector#readme"},
         "certification": {"url": "https://example.com/certification"},
-        "help": {"url": "https://example.com/help"},
+        "help": {"url": "https://agic.it/it"},
         "privacy": {"url": "https://example.com/privacy"},
         "terms": {"url": "https://example.com/terms"},
         "license": {"url": "https://azuremarketplace.microsoft.com"}
