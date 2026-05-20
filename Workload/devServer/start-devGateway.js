@@ -21,16 +21,16 @@ async function startDevGateway(interactiveLogin = true) {
     var startDevGatewayCmd = "";
     const operatingSystem = os.platform();
     if (operatingSystem === 'win32') {
-      startDevGatewayCmd = startDevGatewayScript;
+      startDevGatewayCmd = `powershell -ExecutionPolicy Bypass -File "${startDevGatewayScript}"`;
     } else {
-      startDevGatewayCmd = `pwsh ${startDevGatewayScript}`;
+      startDevGatewayCmd = `pwsh "${startDevGatewayScript}"`;
     }
 
-    console.log(`🔧 Executing: pwsh ${startDevGatewayScript}`);
+    console.log(`🔧 Executing: ${startDevGatewayCmd}`);
     
-    // Execute the PowerShell script using pwsh (like build-manifest.js does)
+    // Execute the PowerShell script using powershell (like build-manifest.js does)
     // Note: We don't use execAsync here because the Dev Gateway is a long-running process
-    const childProcess = exec(`pwsh ${startDevGatewayScript}`);
+    const childProcess = exec(startDevGatewayCmd);
     
     // Pipe the output to console in real-time
     childProcess.stdout.on('data', (data) => {

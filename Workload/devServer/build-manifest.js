@@ -18,13 +18,13 @@ async function buildManifestPackage() {
     var buildManifestPackageCmd = "";
     const operatingSystem = os.platform();
     if (operatingSystem === 'win32') {
-      buildManifestPackageCmd = buildManifestPackageScript;
+      buildManifestPackageCmd = `powershell -ExecutionPolicy Bypass -File "${buildManifestPackageScript}"`;
     } else {
-      buildManifestPackageCmd = `pwsh ${buildManifestPackageScript}`;
+      buildManifestPackageCmd = `pwsh "${buildManifestPackageScript}"`;
     }
 
     // Run the PowerShell script to build the package manifest
-    const { stdout, stderr } = await execAsync(`pwsh ${buildManifestPackageScript}`);
+    const { stdout, stderr } = await execAsync(buildManifestPackageCmd);
     if (stderr) {
         console.error(`⚠️ BuildManifestPackage error: ${stderr}`);
     } else {
