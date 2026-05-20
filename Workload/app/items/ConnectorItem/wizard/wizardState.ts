@@ -1,89 +1,77 @@
 import {
-  ModuleType,
-  CrmSourceConfiguration,
-  BusinessCentralSourceConfiguration,
-  SqlSourceConfiguration,
+  ConnectorEntry,
   StorageConfiguration,
   SchedulingConfiguration,
 } from "../ConnectorItemDefinition";
+import { buildDefaultConnectors } from "./connectorRegistry";
 
-/** Identifier constants for each step in the 7-step configuration wizard. */
+/**
+ * Identifier constants for each step in the 5-step configuration wizard.
+ *
+ * Wizard flow (v2 multi-connector):
+ *   1. CONNECTORS — multi-select toggle cards (replaces single radio MODULE step)
+ *   2. CONFIG     — per-connector config panels (source + auth + entities per enabled connector)
+ *   3. STORAGE    — shared Bronze Lakehouse settings
+ *   4. SCHEDULE   — shared ingestion schedule
+ *   5. REVIEW     — summary + activate button
+ */
 export const WIZARD_STEPS = {
-  /** Step 1 – choose the data source module (CRM / Business Central / SQL). */
-  MODULE:    "wizard-module",
-  /** Step 2 – enter source connection parameters (URL, server, environment). */
-  SOURCE:    "wizard-source",
-  /** Step 3 – configure credentials (Fabric Connection / Key Vault / Service Principal). */
-  AUTH:      "wizard-auth",
-  /** Step 4 – select entities / tables to extract. */
-  ENTITIES:  "wizard-entities",
-  /** Step 5 – choose or create the destination Bronze Lakehouse. */
-  STORAGE:   "wizard-storage",
-  /** Step 6 – configure automated run schedule (cron or interval). */
-  SCHEDULE:  "wizard-schedule",
-  /** Step 7 – review configuration before activating the connector. */
-  REVIEW:    "wizard-review",
+  /** Step 1 – enable/disable connectors via toggle cards (multi-select). */
+  CONNECTORS: "wizard-connectors",
+  /** Step 2 – source, auth and entity configuration for each enabled connector. */
+  CONFIG:     "wizard-config",
+  /** Step 3 – choose or create the destination Bronze Lakehouse (shared). */
+  STORAGE:    "wizard-storage",
+  /** Step 4 – configure automated run schedule (shared). */
+  SCHEDULE:   "wizard-schedule",
+  /** Step 5 – review configuration before activating. */
+  REVIEW:     "wizard-review",
 } as const;
 
 export type WizardStep = typeof WIZARD_STEPS[keyof typeof WIZARD_STEPS];
 
 /** Ordered sequence of wizard steps; used to navigate forward and backward. */
 export const WIZARD_STEP_ORDER: WizardStep[] = [
-  WIZARD_STEPS.MODULE,
-  WIZARD_STEPS.SOURCE,
-  WIZARD_STEPS.AUTH,
-  WIZARD_STEPS.ENTITIES,
+  WIZARD_STEPS.CONNECTORS,
+  WIZARD_STEPS.CONFIG,
   WIZARD_STEPS.STORAGE,
   WIZARD_STEPS.SCHEDULE,
   WIZARD_STEPS.REVIEW,
 ];
 
-/** Authentication fields collected during the wizard's Auth step. */
-export interface WizardAuthData {
-  /** Selected authentication strategy; null until the user makes a choice. */
-  mode: "fabric_connection" | "keyvault_reference" | "service_principal" | null;
-  /** Fabric Connection ID (used when mode is "fabric_connection"). */
-  fabricConnectionId?: string;
-  /** Key Vault base URI (used when mode is "keyvault_reference"). */
-  keyVaultUri?: string;
-  /** Name of the Key Vault secret containing the client secret. */
-  clientSecretName?: string;
-  /** Entra tenant ID (used when mode is "service_principal"). */
-  tenantId?: string;
-  /** Entra application (client) ID (used when mode is "service_principal"). */
-  clientId?: string;
-}
-
-/** Transient state for the 7-step configuration wizard, held in component state only. */
+/**
+ * Transient state for the 5-step configuration wizard, held in component state only.
+ *
+ * Key change from v1 wizard state:
+ *   `connectors` replaces `moduleType`, `source`, `auth` and `selectedEntities`.
+ *   Each element of `connectors` is an independent `ConnectorEntry` so that
+ *   source, auth and entity settings are isolated per connector type.
+ */
 export interface WizardState {
   /** Currently rendered wizard step. */
   step: WizardStep;
-  /** Module type chosen in Step 1; null until selected. */
-  moduleType: ModuleType | null;
-  /** Partial source configuration accumulated across steps. */
-  source: Partial<CrmSourceConfiguration & BusinessCentralSourceConfiguration & SqlSourceConfiguration>;
-  /** Authentication data collected in Step 3. */
-  auth: WizardAuthData;
-  /** Logical names / table names selected in Step 4. */
-  selectedEntities: string[];
-  /** Storage settings collected in Step 5. */
+  /**
+   * Per-connector configuration — one entry per registered connector type.
+   * Entries with `enabled: false` appear as inactive toggle cards in Step 1
+   * and are excluded from validation and activation.
+   */
+  connectors: ConnectorEntry[];
+  /** Shared storage settings collected in Step 3. */
   storage: Partial<StorageConfiguration>;
-  /** Schedule settings collected in Step 6. */
+  /** Shared schedule settings collected in Step 4. */
   schedule: Partial<SchedulingConfiguration>;
-  /** Field-level validation errors keyed by field name; shown inline in each step. */
+  /** Field-level validation errors keyed by "<connectorType>.<field>"; shown inline. */
   validationErrors: Record<string, string>;
   /** True while the activation API call is in flight; disables the "Activate" button. */
   isActivating: boolean;
 }
 
 export const INITIAL_WIZARD_STATE: WizardState = {
-  step: WIZARD_STEPS.MODULE,
-  moduleType: null,
-  source: {},
-  auth: { mode: null },
-  selectedEntities: [],
+  step: WIZARD_STEPS.CONNECTORS,
+  // Initialise from the registry so new connector types appear automatically
+  connectors: buildDefaultConnectors(),
   storage: {
-    bronzeLakeHouseName: "FabricUniversalConnector-Bronze",
+    bronzeLakeHouseName: "Timevision-Bronze",
     schemaEvolutionPolicy: "merge",
     useExistingLakehouse: false,
   },
@@ -107,7 +95,7 @@ export function getPrevStep(current: WizardStep): WizardStep | null {
   return idx > 0 ? WIZARD_STEP_ORDER[idx - 1] : null;
 }
 
-// Common props interface used by all 7 wizard step components
+/** Common props interface shared by all 5 wizard step components. */
 export interface WizardStepProps {
   wizardState: WizardState;
   onUpdate: (patch: Partial<WizardState>) => void;

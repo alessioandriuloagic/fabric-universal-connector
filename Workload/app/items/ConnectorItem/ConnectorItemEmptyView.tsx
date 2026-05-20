@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import { WorkloadClientAPI } from "@ms-fabric/workload-client";
 import { ItemWithDefinition } from "../../controller/ItemCRUDController";
 import { ItemEditorEmptyView, EmptyStateTask } from "../../components/ItemEditor";
-import { ConnectorItemDefinition } from "./ConnectorItemDefinition";
+import { AnyConnectorItemDefinition } from "./ConnectorItemDefinition";
 import "./ConnectorItem.scss";
 
 interface ConnectorItemEmptyViewProps {
   workloadClient: WorkloadClientAPI;
-  item?: ItemWithDefinition<ConnectorItemDefinition>;
+  item?: ItemWithDefinition<AnyConnectorItemDefinition>;
   onConfigure: () => void;
 }
 
@@ -25,7 +25,7 @@ export function ConnectorItemEmptyView({
       icon: undefined,
       description: t(
         "ConnectorItemEmptyView_ConfigureButton_Description",
-        "Follow the 7-step wizard to connect your data source."
+        "Follow the setup wizard to connect your data sources."
       ),
       onClick: onConfigure,
     },

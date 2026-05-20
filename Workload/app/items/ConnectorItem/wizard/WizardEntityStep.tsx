@@ -1,79 +1,37 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Checkbox, Text } from "@fluentui/react-components";
-import { CrmEntityConfiguration } from "../ConnectorItemDefinition";
 import { WizardStepProps } from "./wizardState";
 
-interface CrmCatalogEntry {
-  key: string;
-  label: string;
-  logicalName: string;
-  displayName: string;
-  extractionMode: "incremental" | "full";
-  selectColumns: string[];
-}
+// Re-export from crmCatalog so existing import sites keep working.
+export { CRM_CATALOG, expandCrmEntities } from "./crmCatalog";
+import { CRM_CATALOG } from "./crmCatalog";
 
-export const CRM_CATALOG: CrmCatalogEntry[] = [
-  {
-    key: "contact",
-    logicalName: "contact",
-    label: "Contact",
-    displayName: "Contact",
-    extractionMode: "incremental",
-    selectColumns: [
-      "contactid", "firstname", "lastname", "fullname",
-      "emailaddress1", "telephone1", "mobilephone",
-      "statecode", "createdon", "modifiedon",
-    ],
-  },
-  {
-    key: "msdynmkt_email",
-    logicalName: "msdynmkt_email",
-    label: "Marketing Email (Customer Insights Journey)",
-    displayName: "Marketing Email (Customer Insights Journey)",
-    extractionMode: "incremental",
-    selectColumns: [
-      "msdynmkt_emailid", "msdynmkt_name", "msdynmkt_subject",
-      "msdynmkt_fromname", "msdynmkt_fromemail",
-      "statecode", "statuscode", "createdon", "modifiedon",
-    ],
-  },
-  {
-    key: "msdynmkt_journey",
-    logicalName: "msdynmkt_journey",
-    label: "Journey (Customer Insights Journey)",
-    displayName: "Journey (Customer Insights Journey)",
-    extractionMode: "incremental",
-    selectColumns: [
-      "msdynmkt_journeyid", "msdynmkt_name",
-      "msdynmkt_journeytype", "msdynmkt_start", "msdynmkt_end",
-      "statecode", "statuscode", "createdon", "modifiedon",
-    ],
-  },
-];
-
-export function expandCrmEntities(selectedKeys: string[]): CrmEntityConfiguration[] {
-  return selectedKeys
-    .map((key) => CRM_CATALOG.find((e) => e.key === key))
-    .filter((e): e is CrmCatalogEntry => e !== undefined)
-    .map((e) => ({
-      logicalName: e.logicalName,
-      displayName: e.displayName,
-      enabled: true,
-      extractionMode: e.extractionMode,
-      selectColumns: e.selectColumns,
-    }));
-}
-
+/**
+ * @deprecated
+ * WizardEntityStep is superseded by ConnectorConfigPanel which renders
+ * entity selection inline per connector.  This component is retained only
+ * for reference; it is no longer rendered in the wizard flow.
+ */
 export function WizardEntityStep({ wizardState, onUpdate, validationErrors }: WizardStepProps) {
   const { t } = useTranslation();
-  const { moduleType, selectedEntities } = wizardState;
+  // connectors array replaces the old selectedEntities + moduleType fields
+  const crmEntry = wizardState.connectors.find((c) => c.connectorType === "crm");
+  const selectedEntities = crmEntry?.entities.map((e) => (e as any).logicalName ?? "") ?? [];
 
   const toggle = (key: string) => {
-    const next = selectedEntities.includes(key)
-      ? selectedEntities.filter((e) => e !== key)
-      : [...selectedEntities, key];
-    onUpdate({ selectedEntities: next });
+    if (!crmEntry) return;
+    const isSelected = selectedEntities.includes(key);
+    const next = wizardState.connectors.map((c) => {
+      if (c.connectorType !== "crm") return c;
+      return {
+        ...c,
+        entities: isSelected
+          ? c.entities.filter((e) => (e as any).logicalName !== key)
+          : [...c.entities],
+      };
+    });
+    onUpdate({ connectors: next as typeof wizardState.connectors });
   };
 
   return (
@@ -82,25 +40,16 @@ export function WizardEntityStep({ wizardState, onUpdate, validationErrors }: Wi
         {t("Wizard_Entities_Title", "Select entities to ingest")}
       </Text>
 
-      {moduleType === "crm" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {CRM_CATALOG.map(({ key, label }) => (
-            <Checkbox
-              key={key}
-              label={label}
-              checked={selectedEntities.includes(key)}
-              onChange={() => toggle(key)}
-            />
-          ))}
-        </div>
-      )}
-
-      {(moduleType === "businesscentral" || moduleType === "sql") && (
-        <Text>
-          {t("Wizard_Entities_ManualNote",
-            "Entity configuration for this module is set during the review step.")}
-        </Text>
-      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {CRM_CATALOG.map(({ key, label }) => (
+          <Checkbox
+            key={key}
+            label={label}
+            checked={selectedEntities.includes(key)}
+            onChange={() => toggle(key)}
+          />
+        ))}
+      </div>
 
       {validationErrors.entities && (
         <Text style={{ color: "var(--colorPaletteRedForeground1)" }}>

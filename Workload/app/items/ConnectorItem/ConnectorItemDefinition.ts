@@ -399,3 +399,86 @@ export function isSqlConnector(def: ConnectorItemDefinition): def is SqlConnecto
 export function createEmptyDefinition(): Pick<ConnectorItemDefinitionBase, "schemaVersion" | "state"> {
   return { schemaVersion: "1.0.0", state: "empty" };
 }
+
+// ── v2 Multi-Connector types ────────────────────────────────────
+//
+// Architectural decision: moving from a single-connector discriminated union
+// (v1, schemaVersion "1.0.0") to a multi-connector array model (v2, "2.0.0").
+// All three connector types are always present in the array; `enabled: false`
+// means the connector is inactive.  Adding a fourth connector requires only a
+// new entry in connectorRegistry.ts — this file does not need to change.
+
+/** Per-connector readiness, computed from field-level validation. */
+export type ConnectorStatus = "unconfigured" | "valid" | "error";
+
+/** Per-connector configuration block for a Dataverse / Dynamics 365 CRM connector. */
+export interface CrmConnectorEntry {
+  connectorType: "crm";
+  /** Whether this connector participates in the next ingestion run. */
+  enabled: boolean;
+  /** Computed from field validation; drives the status badge in the UI. */
+  status: ConnectorStatus;
+  source: Partial<CrmSourceConfiguration>;
+  auth?: AuthConfiguration;
+  entities: CrmEntityConfiguration[];
+}
+
+/** Per-connector configuration block for a Business Central OData connector. */
+export interface BusinessCentralConnectorEntry {
+  connectorType: "businesscentral";
+  enabled: boolean;
+  status: ConnectorStatus;
+  source: Partial<BusinessCentralSourceConfiguration>;
+  auth?: AuthConfiguration;
+  entities: BusinessCentralEntityConfiguration[];
+}
+
+/** Per-connector configuration block for a SQL Server / Azure SQL connector. */
+export interface SqlConnectorEntry {
+  connectorType: "sql";
+  enabled: boolean;
+  status: ConnectorStatus;
+  source: Partial<SqlSourceConfiguration>;
+  auth?: AuthConfiguration;
+  entities: SqlEntityConfiguration[];
+}
+
+/**
+ * Discriminated union of all supported per-connector config entries.
+ * Narrow by checking `connectorType`.
+ */
+export type ConnectorEntry =
+  | CrmConnectorEntry
+  | BusinessCentralConnectorEntry
+  | SqlConnectorEntry;
+
+/**
+ * v2 item definition supporting multiple simultaneous connectors.
+ * Storage, scheduling, features, runtime and metadata are shared across all
+ * active connectors (they write to the same Bronze Lakehouse on the same schedule).
+ *
+ * schemaVersion "2.0.0" is the discriminator used by normalizeToV2() to skip
+ * migration when the payload is already in the new format.
+ */
+export interface MultiConnectorItemDefinition {
+  schemaVersion: "2.0.0";
+  state: ConnectorState;
+  /**
+   * Ordered list of connector entries — one per registered connector type.
+   * All connector types are always present so the UI can render toggle cards
+   * even before any connector is configured.
+   */
+  connectors: ConnectorEntry[];
+  storage?: StorageConfiguration;
+  scheduling?: SchedulingConfiguration;
+  features?: FeaturesConfiguration;
+  runtime?: RuntimeConfiguration;
+  metadata?: ConnectorMetadata;
+}
+
+/**
+ * Union of all storable item-definition shapes.
+ * Use `normalizeToV2` (migrationAdapter.ts) to coerce any loaded payload to
+ * `MultiConnectorItemDefinition` before passing it to UI or service logic.
+ */
+export type AnyConnectorItemDefinition = ConnectorItemDefinition | MultiConnectorItemDefinition;

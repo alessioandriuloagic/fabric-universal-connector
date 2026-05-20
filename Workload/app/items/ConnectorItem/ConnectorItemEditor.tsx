@@ -16,17 +16,17 @@ import {
 } from "../../components/ItemEditor";
 import { JobSchedulerClient } from "../../clients/JobSchedulerClient";
 import {
-  ConnectorItemDefinition,
+  MultiConnectorItemDefinition,
+  AnyConnectorItemDefinition,
   ConnectorRun,
-  CrmConnectorItemDefinition,
   EntityWatermark,
 } from "./ConnectorItemDefinition";
+import { normalizeToV2 } from "./wizard/migrationAdapter";
+import { recomputeConnectorStatuses } from "./wizard/wizardValidation";
 import { ConnectorItemEmptyView } from "./ConnectorItemEmptyView";
 import { ConnectorItemRibbon } from "./ribbon/ConnectorItemRibbon";
-import { WizardModuleStep } from "./wizard/WizardModuleStep";
-import { WizardSourceStep } from "./wizard/WizardSourceStep";
-import { WizardAuthStep } from "./wizard/WizardAuthStep";
-import { WizardEntityStep, expandCrmEntities } from "./wizard/WizardEntityStep";
+import { WizardConnectorStep } from "./wizard/WizardConnectorStep";
+import { WizardConfigStep } from "./wizard/WizardConfigStep";
 import { WizardStorageStep } from "./wizard/WizardStorageStep";
 import { WizardScheduleStep } from "./wizard/WizardScheduleStep";
 import { WizardReviewStep } from "./wizard/WizardReviewStep";
@@ -57,7 +57,9 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(true);
-  const [item, setItem] = useState<ItemWithDefinition<ConnectorItemDefinition>>();
+  // Item state is typed as MultiConnectorItemDefinition (v2).
+  // v1 payloads are normalised at load time via normalizeToV2.
+  const [item, setItem] = useState<ItemWithDefinition<MultiConnectorItemDefinition>>();
   const [viewSetter, setViewSetter] = useState<((view: string) => void) | null>(null);
   const [wizardState, setWizardState] = useState<WizardState>(INITIAL_WIZARD_STATE);
   const [isRunning, setIsRunning] = useState(false);
@@ -71,11 +73,16 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
     if (pageContext.itemObjectId && item && item.id === pageContext.itemObjectId) return;
     setIsLoading(true);
     try {
-      const loaded = await getWorkloadItem<ConnectorItemDefinition>(
+      // Load raw payload (may be v1 or v2) and normalise to v2 immediately.
+      const loaded = await getWorkloadItem<AnyConnectorItemDefinition>(
         workloadClient,
-        pageContext.itemObjectId ?? ''
+        pageContext.itemObjectId ?? "",
       );
-      setItem(loaded);
+      const normalised: ItemWithDefinition<MultiConnectorItemDefinition> = {
+        ...loaded,
+        definition: loaded.definition ? normalizeToV2(loaded.definition) : undefined,
+      };
+      setItem(normalised);
     } catch {
       setItem(undefined);
     }
@@ -86,7 +93,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
 
   useEffect(() => {
     if (!isLoading && item && viewSetter) {
-      const state = (item.definition as any)?.state;
+      const state = item.definition?.state;
       viewSetter(state === "configured" || state === "paused" ? VIEWS.DASHBOARD : VIEWS.EMPTY);
     }
   }, [isLoading, item, viewSetter]);
@@ -109,64 +116,48 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
     setIsSchedulePaused((prev) => !prev);
   }
 
+  /**
+   * Builds and saves a MultiConnectorItemDefinition from the current wizard state.
+   *
+   * For each enabled connector the source, auth and entities are taken directly
+   * from the per-connector entry — no module-type branching is needed here.
+   * The connector registry drives type safety; adding a connector requires no
+   * change to this function.
+   */
   async function handleActivate(): Promise<void> {
     if (!item) return;
     updateWizard({ isActivating: true });
     try {
-      const { moduleType, source, auth, selectedEntities, storage, schedule } = wizardState;
+      // Recompute statuses before saving so the persisted definition reflects
+      // the current validation state.
+      const refreshedConnectors = recomputeConnectorStatuses(wizardState.connectors);
 
-      let definition: ConnectorItemDefinition;
-
-      if (moduleType === "crm") {
-        const crmDef: CrmConnectorItemDefinition = {
-          schemaVersion: "1.0.0",
-          state: "configured",
-          moduleType: "crm",
-          source: {
-            environmentUrl: (source as any).environmentUrl ?? "",
-            tenantId: (source as any).tenantId ?? "",
-            enableChangeTracking: true,
-            pageSize: 5000,
-          },
-          entities: expandCrmEntities(selectedEntities),
-          authentication: auth.mode === "service_principal" ? {
-            mode: "service_principal",
-            tenantId: auth.tenantId ?? "",
-            clientId: auth.clientId ?? "",
-            secretRef: auth.fabricConnectionId
-              ? { mode: "fabric_connection", fabricConnectionId: auth.fabricConnectionId }
-              : { mode: "keyvault_reference", keyVaultUri: auth.keyVaultUri ?? "", clientSecretName: auth.clientSecretName ?? "" },
-          } : auth.mode === "fabric_connection" ? {
-            mode: "fabric_connection",
-            fabricConnectionId: auth.fabricConnectionId ?? "",
-          } : {
-            mode: "keyvault_reference",
-            keyVaultUri: auth.keyVaultUri ?? "",
-            clientSecretName: auth.clientSecretName ?? "",
-          },
-          storage: {
-            bronzeLakeHouseName: storage.bronzeLakeHouseName ?? "FabricUniversalConnector-Bronze",
-            schemaEvolutionPolicy: storage.schemaEvolutionPolicy ?? "merge",
-            useExistingLakehouse: storage.useExistingLakehouse ?? false,
-          },
-          scheduling: {
-            scheduleType: schedule.scheduleType ?? "cron",
-            cronExpression: schedule.cronExpression,
-            intervalMinutes: schedule.intervalMinutes,
-            timezone: schedule.timezone ?? "UTC",
-            enabled: schedule.enabled ?? true,
-          },
-          metadata: {
-            activatedAt: new Date().toISOString(),
-          },
-        };
-        definition = crmDef;
-      } else {
-        return;
-      }
+      const definition: MultiConnectorItemDefinition = {
+        schemaVersion: "2.0.0",
+        state: "configured",
+        // Only enabled connectors participate in the persisted payload; disabled
+        // ones are not written so the backend stays connector-agnostic.
+        connectors: refreshedConnectors,
+        storage: {
+          bronzeLakeHouseName:
+            wizardState.storage.bronzeLakeHouseName ?? "Timevision-Bronze",
+          schemaEvolutionPolicy: wizardState.storage.schemaEvolutionPolicy ?? "merge",
+          useExistingLakehouse: wizardState.storage.useExistingLakehouse ?? false,
+        },
+        scheduling: {
+          scheduleType: wizardState.schedule.scheduleType ?? "cron",
+          cronExpression: wizardState.schedule.cronExpression,
+          intervalMinutes: wizardState.schedule.intervalMinutes,
+          timezone: wizardState.schedule.timezone ?? "UTC",
+          enabled: wizardState.schedule.enabled ?? true,
+        },
+        metadata: {
+          activatedAt: new Date().toISOString(),
+        },
+      };
 
       await saveItemDefinition(workloadClient, item.id, definition);
-      setItem((prev) => prev ? { ...prev, definition } : prev);
+      setItem((prev) => (prev ? { ...prev, definition } : prev));
     } catch (err) {
       console.error("Activation failed", err);
       throw err;
@@ -200,12 +191,23 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
       validationErrors: wizardState.validationErrors,
     };
 
-    const isFirstStep = wizardState.step === WIZARD_STEPS.MODULE;
+    const isFirstStep = wizardState.step === WIZARD_STEPS.CONNECTORS;
     const isReviewStep = wizardState.step === WIZARD_STEPS.REVIEW;
 
     const handleNext = () => {
       const next = getNextStep(wizardState.step);
-      if (next) updateWizard({ step: next });
+      if (next) {
+        // Recompute connector statuses when leaving the CONFIG step so the
+        // review screen immediately shows accurate badges.
+        if (wizardState.step === WIZARD_STEPS.CONFIG) {
+          updateWizard({
+            step: next,
+            connectors: recomputeConnectorStatuses(wizardState.connectors),
+          });
+        } else {
+          updateWizard({ step: next });
+        }
+      }
     };
 
     const handlePrev = () => {
@@ -227,24 +229,27 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
 
     const renderStep = () => {
       switch (wizardState.step) {
-        case WIZARD_STEPS.MODULE:   return <WizardModuleStep   {...commonProps} />;
-        case WIZARD_STEPS.SOURCE:   return <WizardSourceStep   {...commonProps} />;
-        case WIZARD_STEPS.AUTH:     return <WizardAuthStep     {...commonProps} />;
-        case WIZARD_STEPS.ENTITIES: return <WizardEntityStep   {...commonProps} />;
-        case WIZARD_STEPS.STORAGE:  return <WizardStorageStep  {...commonProps} />;
-        case WIZARD_STEPS.SCHEDULE: return <WizardScheduleStep {...commonProps} />;
-        case WIZARD_STEPS.REVIEW:   return (
+        case WIZARD_STEPS.CONNECTORS: return <WizardConnectorStep {...commonProps} />;
+        case WIZARD_STEPS.CONFIG:     return <WizardConfigStep    {...commonProps} />;
+        case WIZARD_STEPS.STORAGE:    return <WizardStorageStep   {...commonProps} />;
+        case WIZARD_STEPS.SCHEDULE:   return <WizardScheduleStep  {...commonProps} />;
+        case WIZARD_STEPS.REVIEW:     return (
           <WizardReviewStep {...commonProps} onActivate={handleActivateAndNavigate} />
         );
         default: return null;
       }
     };
 
+    const hasEnabledConnector = wizardState.connectors.some((c) => c.enabled);
+
     return (
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
         {/* Step counter */}
         <div style={{ padding: "8px 24px", color: "var(--colorNeutralForeground3)", fontSize: 12 }}>
-          {t("Wizard_StepCounter", "Step {{current}} of {{total}}", { current: stepIndex + 1, total: totalSteps })}
+          {t("Wizard_StepCounter", "Step {{current}} of {{total}}", {
+            current: stepIndex + 1,
+            total: totalSteps,
+          })}
         </div>
 
         {/* Step content */}
@@ -253,13 +258,15 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
         </div>
 
         {/* Navigation footer */}
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          padding: "16px 24px",
-          borderTop: "1px solid var(--colorNeutralStroke1)",
-          marginTop: 16,
-        }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            padding: "16px 24px",
+            borderTop: "1px solid var(--colorNeutralStroke1)",
+            marginTop: 16,
+          }}
+        >
           <Button appearance="secondary" onClick={handlePrev}>
             {isFirstStep
               ? t("Wizard_Nav_Cancel", "Cancel")
@@ -270,7 +277,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
             <Button
               appearance="primary"
               onClick={handleNext}
-              disabled={isFirstStep && !wizardState.moduleType}
+              disabled={isFirstStep && !hasEnabledConnector}
             >
               {t("Wizard_Nav_Next", "Next")}
             </Button>
@@ -282,6 +289,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
 
   const DashboardWrapper = () => {
     const { setCurrentView } = useViewNavigation();
+
     return (
       <ConnectorDashboard
         runs={runs}
@@ -329,7 +337,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
         <ConnectorItemRibbon
           workloadClient={workloadClient}
           viewContext={context}
-          connectorState={(item?.definition as any)?.state ?? "empty"}
+          connectorState={item?.definition?.state ?? "empty"}
           isRunning={isRunning}
           isSchedulePaused={isSchedulePaused}
           onRunNow={handleRunNow}
