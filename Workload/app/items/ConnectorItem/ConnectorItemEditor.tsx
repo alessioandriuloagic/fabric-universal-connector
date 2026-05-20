@@ -35,12 +35,11 @@ import { RunDetailView } from "./dashboard/RunDetailView";
 import { EntityDetailView } from "./dashboard/EntityDetailView";
 import {
   WizardState,
-  INITIAL_WIZARD_STATE,
   WIZARD_STEPS,
   WIZARD_STEP_ORDER,
-  getNextStep,
-  getPrevStep,
+  WizardStep,
 } from "./wizard/wizardState";
+import { WORKLOAD_CONFIG, buildWorkloadInitialState } from "./workloadConfig";
 import "./ConnectorItem.scss";
 
 export const VIEWS = {
@@ -61,7 +60,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
   // v1 payloads are normalised at load time via normalizeToV2.
   const [item, setItem] = useState<ItemWithDefinition<MultiConnectorItemDefinition>>();
   const [viewSetter, setViewSetter] = useState<((view: string) => void) | null>(null);
-  const [wizardState, setWizardState] = useState<WizardState>(INITIAL_WIZARD_STATE);
+  const [wizardState, setWizardState] = useState<WizardState>(buildWorkloadInitialState());
   const [isRunning, setIsRunning] = useState(false);
   const [isSchedulePaused, setIsSchedulePaused] = useState(false);
   const [runs] = useState<ConnectorRun[]>([]);
@@ -175,7 +174,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
         workloadClient={workloadClient}
         item={item}
         onConfigure={() => {
-          setWizardState(INITIAL_WIZARD_STATE);
+          setWizardState(buildWorkloadInitialState());
           setCurrentView(VIEWS.WIZARD);
         }}
       />
@@ -191,11 +190,26 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
       validationErrors: wizardState.validationErrors,
     };
 
-    const isFirstStep = wizardState.step === WIZARD_STEPS.CONNECTORS;
+    // Scoped workloads skip the CONNECTORS step — the locked connector is
+    // pre-enabled at initialisation and the user never sees the selection screen.
+    const effectiveStepOrder: WizardStep[] = WORKLOAD_CONFIG.skipConnectorStep
+      ? [WIZARD_STEPS.CONFIG, WIZARD_STEPS.STORAGE, WIZARD_STEPS.SCHEDULE, WIZARD_STEPS.REVIEW]
+      : WIZARD_STEP_ORDER;
+
+    const localNext = (step: WizardStep): WizardStep | null => {
+      const idx = effectiveStepOrder.indexOf(step);
+      return idx < effectiveStepOrder.length - 1 ? effectiveStepOrder[idx + 1] : null;
+    };
+    const localPrev = (step: WizardStep): WizardStep | null => {
+      const idx = effectiveStepOrder.indexOf(step);
+      return idx > 0 ? effectiveStepOrder[idx - 1] : null;
+    };
+
+    const isFirstStep = wizardState.step === effectiveStepOrder[0];
     const isReviewStep = wizardState.step === WIZARD_STEPS.REVIEW;
 
     const handleNext = () => {
-      const next = getNextStep(wizardState.step);
+      const next = localNext(wizardState.step);
       if (next) {
         // Recompute connector statuses when leaving the CONFIG step so the
         // review screen immediately shows accurate badges.
@@ -211,7 +225,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
     };
 
     const handlePrev = () => {
-      const prev = getPrevStep(wizardState.step);
+      const prev = localPrev(wizardState.step);
       if (prev) {
         updateWizard({ step: prev });
       } else {
@@ -224,8 +238,8 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
       setCurrentView(VIEWS.DASHBOARD);
     };
 
-    const stepIndex = WIZARD_STEP_ORDER.indexOf(wizardState.step);
-    const totalSteps = WIZARD_STEP_ORDER.length;
+    const stepIndex = effectiveStepOrder.indexOf(wizardState.step);
+    const totalSteps = effectiveStepOrder.length;
 
     const renderStep = () => {
       switch (wizardState.step) {
@@ -343,7 +357,7 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
           onRunNow={handleRunNow}
           onPauseToggle={handlePauseToggle}
           onReconfigure={() => {
-            setWizardState(INITIAL_WIZARD_STATE);
+            setWizardState(buildWorkloadInitialState());
             viewSetter?.(VIEWS.WIZARD);
           }}
           onOpenSettings={async () => {

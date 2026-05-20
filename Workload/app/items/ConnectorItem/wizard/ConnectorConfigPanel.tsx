@@ -38,6 +38,7 @@ import {
 } from "../ConnectorItemDefinition";
 import { ConnectorDefinition } from "./connectorRegistry";
 import { CRM_CATALOG, expandCrmEntities } from "./crmCatalog";
+import { WORKLOAD_CONFIG } from "../workloadConfig";
 
 // ── Props ────────────────────────────────────────────────────────
 
@@ -334,6 +335,29 @@ function CrmEntitiesPanel({
   entry: CrmConnectorEntry;
   onChange: (e: CrmConnectorEntry) => void;
 }) {
+  const { t } = useTranslation();
+
+  // Scoped workload: entities are locked — show read-only list, no checkboxes.
+  if (WORKLOAD_CONFIG.isScoped) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {WORKLOAD_CONFIG.lockedEntityLabels?.map((label) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Text size={300} style={{ color: "var(--colorBrandForeground1)" }}>✓</Text>
+            <Text size={300}>{label}</Text>
+          </div>
+        ))}
+        <Text
+          size={200}
+          style={{ color: "var(--colorNeutralForeground3)", marginTop: 4 }}
+        >
+          {t("ConnectorConfig_EntitiesLocked", "These entities are fixed for this workload.")}
+        </Text>
+      </div>
+    );
+  }
+
+  // Universal Connector: user selects entities via checkboxes.
   const selectedKeys = entry.entities.map((e) => e.logicalName);
 
   const toggle = (key: string) => {
