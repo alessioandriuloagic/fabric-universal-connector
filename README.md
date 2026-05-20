@@ -1,123 +1,275 @@
-# Microsoft Fabric Extensibility Toolkit
+# Fabric Universal Connector
 
-Welcome to the Microsoft Fabric Extensibility Toolkit. This repository contains everything you need to start creating a new Extension for Fabric. Besides the source code itself with a HelloWorld Sample it also contains a comprehensive guide that covers everything you need to know to create custom Fabric items for your organization. We're here to assist you every step of the way, so please don't hesitate to reach out with any questions, via "Issues" tab in this GitHub repository. Happy developing!
+**Publisher:** Agic Technology srl  
+**Version:** v2026.03  
+**Category:** Data Integration · Microsoft Fabric Workload
 
-[!NOTE]
-The Microsoft Fabric Extensibility Toolkit is an evolution of the Workload Development Kit. If you are starting from scratch we encourage customers and partners to start building using the new Extensibility Toolkit which is focusing on easy fast development and enables Fabric Fundamentals out of the box.
+> A production-ready, metadata-driven data ingestion workload for Microsoft Fabric. Connect Dataverse / Dynamics 365 CRM, Business Central, and SQL Server to your Fabric Lakehouse with a guided 7-step wizard — no code required.
 
-## Trademarks
+---
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft
-trademarks or logos is subject to and must follow [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+## Overview
 
-## Table of contents
+The **Fabric Universal Connector** is an enterprise-grade Microsoft Fabric workload that brings multi-source data ingestion natively into the Fabric experience. It eliminates the need for custom pipelines, external ETL tools, or bespoke notebooks by providing a unified, configuration-driven connector that runs directly in your Fabric workspace.
 
-- [Microsoft Fabric Extensibility Toolkit](#microsoft-fabric-extensibility-toolkit)
-  - [Trademarks](#trademarks)
-  - [Table of contents](#table-of-contents)
-  - [Latest Release](#latest-release)
-- [Introduction](#introduction)
-  - [What is Fabric](#what-is-fabric)
-  - [What is a Fabric Workload](#what-is-a-fabric-workload)
-  - [What is a Fabric Item](#what-is-a-fabric-item)
-  - [What is the Fabric Extensibility Toolkit](#what-is-the-fabric-extensibility-toolkit)
-- [Build Your Own Workload](#build-your-own-workload)
-  - [Prerequisites](#prerequisites)
-  - [Setting things up](#setting-things-up)
+Once configured, the connector deploys a Python runtime notebook into your workspace and schedules it via the Fabric Job Scheduler. All raw data lands in an append-only Bronze Lakehouse (Delta format) — ready for downstream Silver/Gold transformations.
 
-## Latest Release
+---
 
-📋 **[v2026.03 - Remote Hosting & Job Scheduling](docs/ReleaseNotes/2026/v2026.03.md)**
+## Supported Data Sources
 
-This release introduces major enhancements for remote workload hosting, comprehensive job scheduling capabilities, and improved operational APIs. The update focuses on production-ready remote hosting features, making it easier for workload developers to deploy and manage Fabric workloads at scale. [View all release notes →](docs/ReleaseNotes/)
+| Source | Protocol | Incremental Strategy |
+|--------|----------|----------------------|
+| **Dataverse / Dynamics 365 CRM** | OData v4 (Dataverse Web API) | Change Tracking delta links |
+| **Microsoft Dynamics 365 Business Central** | OData v4 | Timestamp / delta watermarks |
+| **SQL Server / Azure SQL** | ODBC / JDBC | Watermark column (datetime, rowversion, integer) |
 
-## Introduction
+---
 
-### What is Fabric
+## Key Features
 
-Microsoft Fabric is a comprehensive analytics solution designed for enterprise-level applications. This platform encompasses a wide range of services, including data engineering, real-time analytics, and business intelligence, all consolidated within a single, unified framework.
+### Guided Configuration Wizard
+A 7-step wizard walks users through the full setup:
+1. **Module** — choose the source system (CRM, Business Central, or SQL)
+2. **Source** — enter connection parameters (URL, server, environment)
+3. **Authentication** — select credentials strategy (Fabric Connection, Key Vault, or Service Principal)
+4. **Entities** — pick tables / entities to ingest with per-entity extraction settings
+5. **Storage** — choose or create the destination Bronze Lakehouse
+6. **Schedule** — configure automated runs (cron expression or fixed interval)
+7. **Review** — validate the full configuration before activating
 
-The key advantage of Microsoft Fabric is its integrated approach, that eliminates the need for distinct services from multiple vendors. Users can leverage this platform to streamline their analytics processes, with all services accessible from a single source of truth.
+### Incremental Extraction
+- CRM: uses Dataverse **Change Tracking** to extract only new and modified records since the last run
+- Business Central: timestamp-based watermarks to track new records per endpoint
+- SQL: configurable watermark column (supports `datetime`, `rowversion`, and `integer` types)
+- Watermarks are persisted in Delta tables (`_meta/watermarks`) and survive connector restarts
 
-Microsoft Fabric provides integration and simplicity, as well as a transparent and flexible cost management experience. This cost management experience allows users to control expenses effectively by ensuring they only pay for the resources they require.
+### Schema Evolution Handling
+Three policies to handle source schema changes between runs:
+- **Merge** (default) — new columns are added automatically; existing data is preserved
+- **Strict** — schema changes cause the run to fail; safe for tightly controlled pipelines
+- **Overwrite** — full table recreation with the new schema; use with caution
 
-The Fabric platform is not just a tool, but a strategic asset that simplifies and enhances the analytics capabilities of any enterprise.
-More information about Fabric can be found in the [documentation](https://learn.microsoft.com/en-us/fabric/get-started/microsoft-fabric-overview).
+### Authentication Strategies
+- **Fabric Connection** — credentials stored in the Fabric Connection manager; no secrets in item definition
+- **Key Vault Reference** — secrets resolved from Azure Key Vault at runtime; zero-secret architecture
+- **Service Principal** — direct Entra ID service principal with secret resolved via Fabric Connection or Key Vault
 
-### What is a Fabric Workload
+### Run Dashboard
+The item editor includes a live dashboard with:
+- Run history list with status, duration, and record counts
+- Per-entity drill-down showing records ingested, failed, and current watermark
+- Run detail view with full entity-level breakdown and error messages
+- Ribbon actions: **Run Now**, **Pause / Resume schedule**, **Reconfigure**
 
-In Microsoft Fabric, workloads are a package of different components that are integrated into the Fabric framework. Workloads enhance the usability of your service within the familiar Fabric workspace, eliminating the need to leave the Fabric environment for different services. [Data Factory](https://learn.microsoft.com/en-us/fabric/data-factory/data-factory-overview), [Data Warehouse](https://learn.microsoft.com/en-us/fabric/data-warehouse/data-warehousing) and  [Power BI](https://learn.microsoft.com/en-us/power-bi/enterprise/service-premium-what-is) are some of the built-in Fabric workloads.
+### Bronze Lakehouse Structure
+All data lands in Delta format under predictable paths:
 
-### What is a Fabric Item
+```
+bronze_crm/
+  contact/          ← CRM entity data (append-only)
+  lead/
+  ...
+  _meta/
+    _connector_runs     ← run audit log
+    _watermarks         ← incremental sync checkpoints
+    _schema_evolution   ← schema change history
+    _error_log          ← per-record error tracking
 
-Items in Fabric represent the core functional building blocks that users interact with inside the Fabric platform. Each item encapsulates a specific capability or resource, such as data storage, analytics, or collaboration. Different workloads introduce different types of items, each tailored to a particular use case or service.
+bronze_bc/
+  customers/
+  _meta/
 
-Examples in Fabric include:
+bronze_sql/
+  {schema}_{table}/
+  _meta/
+```
 
-- **Lakehouse**: Combines the benefits of data lakes and data warehouses, enabling users to store, manage, and analyze large volumes of structured and unstructured data in a single, unified environment.
-- **Notebook**: Provides an interactive workspace for data exploration, analysis, and visualization using languages like Python, SQL, or R. Notebooks are ideal for data scientists and analysts to document and execute code alongside rich text and visualizations.
-- **Data Warehouse**: Offers scalable, high-performance analytics on large datasets, supporting complex queries and business intelligence workloads.
-- **Pipeline**: Automates data movement and transformation across various sources and destinations within Fabric.
+### Error Handling & Partial Runs
+- Configurable **error threshold** (% of failed records) before a run is marked as failed
+- **Partial run mode** allows a run to succeed even when some entities fail
+- All extraction errors are logged to `_meta/_error_log` with full context for diagnosis
 
-These are just a few examples—Fabric supports a wide range of item types, and new custom items can be created using the Extensibility Toolkit to address unique business needs.
+---
 
-### What is the Fabric Extensibility Toolkit
+## Architecture
 
-With the Fabric Extensibility Toolkit, you can create your own items and provide them as a workload in Fabric. Customers can create a workload for their own tenant to integrate their Data applications into the platform. Partners can build workloads and publish them into the Fabric Workload Hub which makes them available to all Fabric customers. The Microsoft Fabric Extensibility Toolkit provides you with all the necessary tools and interfaces to embed your data application into Microsoft Fabric.
+```
+Fabric Portal (browser)
+  └─ ConnectorItem UI (React / TypeScript — FERemote iframe)
+       └─ 7-step wizard → item definition saved as Base64 JSON in OneLake
 
-For more information on what workloads can offer Microsoft partners, and for useful examples, head to our official [Microsoft Fabric Extensibility Toolkit documentation](https://learn.microsoft.com/fabric/extensibility-toolkit).
+Fabric Job Scheduler
+  └─ Triggers on schedule or on-demand
+       └─ FastAPI Backend (Azure Container Apps / App Service)
+            └─ Validates JWT, loads item definition, routes to module connector
+                 ├─ CRMConnector    → Dataverse Web API (MSAL auth)
+                 ├─ BCConnector     → Business Central OData v4
+                 └─ SQLConnector    → SQL Server / Azure SQL (ODBC)
+                      └─ Writes Delta tables to Bronze Lakehouse via OneLake SDK
+```
 
-## Build Your Own Workload
+**Key architectural decisions:**
+- Frontend hosted on ISV infrastructure (FERemote pattern) — no code runs in customer compute at UI time
+- Ingestion executes in the customer's Fabric workspace via deployed notebooks (Spark / Python)
+- All raw data is **append-only** — source records are never modified or deleted in the Bronze layer
+- Item definition stored as **Base64 JSON** in OneLake — no database dependency for configuration
+- **Zero-trust credential model** — no secrets are stored in the item definition or backend code
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-To run the development environment locally you need the following prerequisites:
+- Microsoft Fabric workspace with an assigned Fabric capacity
+- One of the supported source systems (Dataverse, Business Central, or SQL Server)
+- An Entra ID application registration (or existing Fabric Connection) with access to the source
+- Contributor access to the target Fabric workspace
 
-- [Node.js](https://nodejs.org/en/download/)
-- [Powershell 7](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell)
-- [Dotnet](https://dotnet.microsoft.com/en-us/download) for MacOS please make sure to install the x64 version - after installing make sure to restart the powershell.
-- [VSCode](https://code.visualstudio.com/download) or similar development environment
-- [Fabric Tenant](https://app.fabric.microsoft.com/) that you use for development and publishing the Workload later on
-- [Fabric Workspace](https://learn.microsoft.com/en-us/fabric/fundamentals/workspaces) that you can use to build your workload
-- [Fabric Capacity](https://learn.microsoft.com/en-us/fabric/enterprise/licenses) that is assigned to the workspace you are planning to use
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) (only used for Entra App creation) - after installing make sure to restart powershell.
-- [Entra App](https://entra.microsoft.com/) You either need an existing Entra App you can use one that is configured correctly or you need permission to create a new Entra App.
+### Create a Connector Item
 
-[!NOTE]
-After installing new software please make sure that you restart Powershell and Visual Studio, otherwise the scripts might file because the software is not part of the path variable.
+1. Open your Fabric workspace.
+2. Click **+ New** → **Fabric Universal Connector**.
+3. Give the item a name and click **Create**.
+4. The item editor opens on the **empty state** screen — click **Configure Connector** to start the wizard.
 
-Alternatively we suggest to use a [Codespace](https://github.com/features/codespaces) in GitHub which has everything preconfigured:
+### Step Through the Wizard
 
-If you use a codespace please make sure that you select at least an 8 core machine and open the Codespace in VSCode locally. This way everything will work out of the box.
+**Step 1 — Module**  
+Select the data source module: *Dataverse / Dynamics 365 CRM*, *Business Central*, or *SQL Server*.
 
-### Project structure
+**Step 2 — Source**  
+Enter the connection parameters specific to your module:
+- CRM: Dataverse environment URL and tenant ID
+- Business Central: tenant ID, environment name, optional company ID
+- SQL: server hostname, database name, port
 
-Use the [Project structure](./docs/Project_Structure.md) to get a better understanding about Extensibility projects are structured and where you can find and change it to your needs.
+**Step 3 — Authentication**  
+Choose how credentials are resolved at runtime:
+- **Fabric Connection** (recommended): select a pre-registered Fabric Connection
+- **Key Vault Reference**: provide your Key Vault URI and secret names
+- **Service Principal**: enter tenant ID and client ID, then select the secret source
 
-### 🤖 AI Assistance
+**Step 4 — Entities**  
+Browse the available entities / tables and select which ones to ingest. For each entity you can configure:
+- Extraction mode (incremental or full reload)
+- Column selection (OData $select / SQL column list)
+- Server-side filter (OData $filter / SQL WHERE clause)
+- Batch / page size
 
-If you are using GitHub Copilot or other AI assistants, please refer to the **[AI Instructions](.github/copilot-instructions.md)**. This file contains critical architectural rules and context that will help the AI generate correct code for this repository.
+**Step 5 — Storage**  
+Choose the destination Bronze Lakehouse:
+- Create a new Lakehouse automatically (default name: `FabricUniversalConnector-Bronze`)
+- Attach to an existing Lakehouse in the same workspace
+- Set the schema evolution policy
 
-**Key Resources for AI:**
+**Step 6 — Schedule**  
+Configure when the connector runs automatically:
+- **Cron** expression (e.g. `0 2 * * *` for daily at 02:00 UTC)
+- **Interval** in minutes (e.g. every 60 minutes)
+- Select timezone and optional start date
 
-- `.github/copilot-instructions.md` - Main entry point for AI github copilot
-- `.ai/` folder - Detailed context and command references for any AI assistant
+**Step 7 — Review & Activate**  
+Inspect the full configuration summary. Click **Activate** to:
+1. Deploy the connector runtime notebook into your workspace
+2. Register the job schedule with the Fabric Job Scheduler
+3. Transition the item to **configured** state
 
-### Available Components
+### Running the Connector
 
-The toolkit includes pre-built components to accelerate your workload development. These components follow Fabric Design System guidelines for consistent user experiences.
+After activation, use the ribbon actions in the item editor:
 
-**[📋 View All Components →](./docs/components/README.md)**
+| Action | Description |
+|--------|-------------|
+| **Run Now** | Trigger an immediate on-demand run |
+| **Pause / Resume** | Temporarily disable the automated schedule |
+| **Reconfigure** | Re-enter the wizard to change any setting |
+| **Settings** | Edit display name, description, and tags |
 
-Key highlights:
-- **ItemEditor Component** - Foundation for all item editors (mandatory)
-- **OneLakeView** - OneLake integration and file browsing  
-- **Wizard Component** - Multi-step guided workflows
+Run history and per-entity results appear on the **Dashboard** view automatically after each run.
 
-For complete documentation, examples, and implementation guides, see the [Components Documentation](./docs/components/README.md).
+---
 
-### Setting things up
+## Configuration Reference
 
-To set things up follow the [Setup Guide](./docs/Project_Setup.md)
+The item definition is stored as a versioned JSON document (`schemaVersion: "1.0.0"`). Below is the full structure:
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "state": "configured",
+  "moduleType": "crm | businesscentral | sql",
+  "source": { ... },
+  "entities": [ ... ],
+  "authentication": { "mode": "fabric_connection | keyvault_reference | service_principal", ... },
+  "storage": {
+    "bronzeLakeHouseName": "FabricUniversalConnector-Bronze",
+    "schemaEvolutionPolicy": "merge | strict | overwrite",
+    "retentionDays": 90,
+    "useExistingLakehouse": false
+  },
+  "scheduling": {
+    "scheduleType": "cron",
+    "cronExpression": "0 2 * * *",
+    "timezone": "UTC",
+    "enabled": true
+  },
+  "features": {
+    "errorThresholdPercent": 5,
+    "enablePartialRun": true,
+    "enableDeltaLakeOptimize": true
+  }
+}
+```
+
+---
+
+## Security & Compliance
+
+- **No credentials in code or item definition** — all secrets resolved at runtime via Fabric Connections or Azure Key Vault
+- **JWT-validated backend** — all API calls from Fabric are verified against your Entra tenant
+- **Tenant isolation** — each customer's data is stored in their own OneLake workspace; no cross-tenant data access
+- **Append-only Bronze layer** — source data is never modified; full audit trail of every ingested record
+- **Rate limiting** — backend API protected with per-IP rate limiting (slowapi)
+- **OWASP Top 10 mitigations** applied across frontend and backend
+
+---
+
+## Release Notes
+
+### v2026.03 — Remote Hosting & Job Scheduling *(Current)*
+- Production-ready remote hosting with `SwitchToRemoteHosting.ps1`
+- Full Fabric Job Scheduler integration with run lifecycle management
+- Soft delete and restore for connector items
+- `CreateJob.ps1` for programmatic schedule registration
+
+### v2026.01 — Connector Item GA
+- Dataverse / Business Central / SQL connector modules
+- 7-step configuration wizard
+- Bronze Lakehouse with Delta format, watermarks, and _meta tables
+- Incremental extraction with Change Tracking (CRM) and watermark columns (BC / SQL)
+- Schema evolution policies (merge / strict / overwrite)
+- Run dashboard with per-entity drill-down
+
+[View all release notes →](docs/ReleaseNotes/)
+
+---
+
+## Support
+
+- **Issues & Feedback**: open an issue on the [GitHub repository](https://github.com/agic-technology/fabric-universal-connector/issues)
+- **Documentation**: [docs/](docs/) folder in this repository
+- **Publisher**: [Agic Technology srl](https://agic.technology)
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft trademarks or logos is subject to and must follow [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
+
+---
+
+*2026-05-20 10:00 UTC*
