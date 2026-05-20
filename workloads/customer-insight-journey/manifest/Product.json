@@ -1,0 +1,73 @@
+{
+    "name": "Product",
+    "version": "1.100",
+    "displayName": "CIJ_Display_Name",
+    "fullDisplayName": "CIJ_Full_Display_Name",
+    "description": "CIJ_Description",
+    "favicon": "assets/images/ConnectorItem_Icon.png",
+    "icon": {
+      "name": "assets/images/ConnectorItem_Icon.png"
+    },
+    "homePage": {
+      "learningMaterials": [
+        {
+          "title": "CIJ_Hub_GetStarted_1_Title",
+          "introduction": "CIJ_Hub_GetStarted_1_Sub_Title",
+          "description": "CIJ_Hub_GetStarted_1_Description",
+          "image": "assets/images/Workload_Hub_GetStarted_1.png",
+          "link": "https://aka.ms/get-started-learning-docs"
+        }
+      ],
+      "newSection": {
+        "customActions": []
+      },
+      "recommendedItemTypes": [
+        "Connector"
+      ]
+    },
+    "createExperience": {
+      "description": "CIJ_Description",
+      "cards": [
+        {
+          "title": "ConnectorItem_DisplayName",
+          "description": "ConnectorItem_Description",
+          "icon": {
+            "name": "assets/images/ConnectorItem_Icon.png"
+          },
+          "icon_small": {
+            "name": "assets/images/ConnectorItem_Icon.png"
+          },
+          "availableIn": [
+            "home",
+            "create-hub",
+            "workspace-plus-new",
+            "workspace-plus-new-teams"
+          ],
+          "itemType": "Connector",
+          "createItemDialogConfig": {
+            "onCreationFailure": { "action": "item.onCreationFailure" },
+            "onCreationSuccess": { "action": "item.onCreationSuccess" }
+          }
+        }
+      ]
+    },
+    "productDetail": {
+      "publisher": "Agic Technology srl",
+      "slogan": "CIJ_Hub_Slogan",
+      "description": "CIJ_Hub_Description",
+      "image": {
+        "mediaType": 0,
+        "source": "assets/images/Workload_Hub_Banner.png"
+      },
+      "slideMedia": [],
+      "supportLink": {
+        "documentation": {"url": "https://github.com/agic-technology/fabric-universal-connector#readme"},
+        "help": {"url": "https://agic.it/it"},
+        "privacy": {"url": "https://example.com/privacy"},
+        "terms": {"url": "https://example.com/terms"},
+        "license": {"url": "https://azuremarketplace.microsoft.com"}
+      }
+    },
+    "itemJobTypes": ["storeData", "others"],
+    "compatibleItemTypes": ["Lakehouse"]
+}

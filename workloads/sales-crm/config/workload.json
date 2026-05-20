@@ -1,0 +1,8 @@
+{
+  "workloadId": "sales-crm",
+  "displayName": "Sales CRM",
+  "source": "crm",
+  "frontendUrl": "https://sales.connector.agic.technology",
+  "wizardSteps": ["auth", "config", "schedule", "storage", "review"],
+  "entities": []
+}

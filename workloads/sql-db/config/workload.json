@@ -1,0 +1,8 @@
+{
+  "workloadId": "sql-db",
+  "displayName": "SQL DB Connector",
+  "source": "sql",
+  "frontendUrl": "https://sql.connector.agic.technology",
+  "wizardSteps": ["auth", "config", "schedule", "storage", "review"],
+  "entities": []
+}

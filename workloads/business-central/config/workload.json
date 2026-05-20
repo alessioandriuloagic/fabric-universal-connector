@@ -1,0 +1,8 @@
+{
+  "workloadId": "business-central",
+  "displayName": "Business Central",
+  "source": "businesscentral",
+  "frontendUrl": "https://bc.connector.agic.technology",
+  "wizardSteps": ["auth", "config", "schedule", "storage", "review"],
+  "entities": []
+}

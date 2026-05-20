@@ -1,0 +1,27 @@
+{
+  "workloadId": "customer-insight-journey",
+  "displayName": "Customer Insight Journey",
+  "source": "crm",
+  "frontendUrl": "https://cij.connector.agic.technology",
+  "wizardSteps": ["auth", "config", "schedule", "storage", "review"],
+  "entities": [
+    {
+      "logicalName": "contact",
+      "displayName": "Contact",
+      "bronzeTable": "bronze_crm/contact",
+      "locked": true
+    },
+    {
+      "logicalName": "msdynmkt_email",
+      "displayName": "Marketing Email (Customer Insights Journey)",
+      "bronzeTable": "bronze_crm/msdynmkt_email",
+      "locked": true
+    },
+    {
+      "logicalName": "msdynmkt_journey",
+      "displayName": "Journey (Customer Insights Journey)",
+      "bronzeTable": "bronze_crm/msdynmkt_journey",
+      "locked": true
+    }
+  ]
+}

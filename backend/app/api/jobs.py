@@ -22,6 +22,7 @@ from typing import Annotated
 import jwt as _jwt
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 from app.rate_limiter import limiter
+from app.api.workloads import WorkloadId, get_workload_id
 
 from app.models.job_models import (
     JobRecord,
@@ -108,6 +109,7 @@ async def start_job(
     context: JobRunContext,
     background_tasks: BackgroundTasks,
     token: BearerToken,
+    workload_id: WorkloadId = Depends(get_workload_id),
 ) -> StartJobResponse:
     """
     Fabric calls this endpoint to start a job instance.
@@ -127,8 +129,8 @@ async def start_job(
             return StartJobResponse(status=JobStatus.IN_PROGRESS)
         return StartJobResponse(status=existing_or_new.status)
 
-    background_tasks.add_task(_execute_job, job_instance_id, context, token)
-    log.info("Job %s accepted (item=%s)", job_instance_id, context.item_object_id)
+    background_tasks.add_task(_execute_job, job_instance_id, context, token, workload_id)
+    log.info("Job %s accepted (item=%s, workload=%s)", job_instance_id, context.item_object_id, workload_id.value)
     return StartJobResponse(status=JobStatus.IN_PROGRESS)
 
 
@@ -175,6 +177,7 @@ async def _execute_job(
     job_instance_id: str,
     context: JobRunContext,
     fabric_token: str,
+    workload_id: WorkloadId = WorkloadId.UNIVERSAL,
 ) -> None:
     """
     Runs the actual ingestion pipeline for a job instance.

@@ -90,4 +90,31 @@ CRM_ENTITY_CATALOG: Dict[str, EntityCatalogEntry] = {
             "createdon", "modifiedon",
         ],
     ),
+    # Customer Insights Journey entities (Real-time Marketing API names)
+    "msdynmkt_email": EntityCatalogEntry(
+        logical_name="msdynmkt_email",
+        plural_name="msdynmkt_emails",
+        primary_key="msdynmkt_emailid",
+        display_name="Marketing Email (Customer Insights Journey)",
+        default_select_columns=[
+            "msdynmkt_emailid", "msdynmkt_name", "msdynmkt_subject",
+            "msdynmkt_fromname", "msdynmkt_fromemail",
+            "statecode", "statuscode",
+            "ownerid", "owningbusinessunit",
+            "createdon", "modifiedon",
+        ],
+    ),
+    "msdynmkt_journey": EntityCatalogEntry(
+        logical_name="msdynmkt_journey",
+        plural_name="msdynmkt_journeys",
+        primary_key="msdynmkt_journeyid",
+        display_name="Journey (Customer Insights Journey)",
+        default_select_columns=[
+            "msdynmkt_journeyid", "msdynmkt_name",
+            "msdynmkt_journeytype", "msdynmkt_start", "msdynmkt_end",
+            "statecode", "statuscode",
+            "ownerid", "owningbusinessunit",
+            "createdon", "modifiedon",
+        ],
+    ),
 }

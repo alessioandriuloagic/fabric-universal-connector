@@ -12,68 +12,22 @@ The workload includes:
 - **Runtime**: Python connector library deployed as Fabric notebooks
 - **Manifest**: XML/JSON configuration for Fabric integration
 
-## Repository Structure
+## Repository Layout (top-level)
 
-```
-root/
-├── Workload/                    # Frontend (React/TypeScript)
-│   ├── app/
-│   │   ├── items/               # Custom Fabric item implementations
-│   │   │   ├── HelloWorldItem/  # Reference sample
-│   │   │   └── ConnectorItem/   # Main data connector UI
-│   │   ├── components/          # Reusable UI components
-│   │   ├── clients/             # API clients
-│   │   ├── controller/          # Business logic controllers (CRUD, Jobs, Notifications)
-│   │   └── index.ts             # Bootstrap entry point
-│   ├── Manifest/                # Workload manifest templates
-│   │   ├── Product.json         # Workload metadata & create experience
-│   │   ├── WorkloadManifest.xml # Workload configuration
-│   │   └── items/               # Per-item JSON/XML configs
-│   ├── devServer/               # Dev server configuration
-│   ├── .env.dev, .env.test, .env.prod  # Environment configs (templated)
-│   ├── package.json             # Frontend dependencies
-│   ├── webpack.config.js        # Webpack build config
-│   └── tsconfig.json            # TypeScript config
-├── backend/                     # FastAPI backend (job orchestration)
-│   ├── app/
-│   │   ├── main.py              # FastAPI entry point
-│   │   ├── api/jobs.py          # Jobs API controller
-│   │   ├── models/              # Data models (job state, connector config)
-│   │   ├── services/            # Business logic (auth, Fabric client, OneLake writer)
-│   │   ├── connectors/          # Source connectors (CRM, BC, SQL)
-│   │   └── exceptions.py        # Error handling
-│   ├── requirements.txt         # Python dependencies
-│   └── Dockerfile              # Container build
-├── connector/
-│   └── runtime/                 # Python package: agic-fabric-connector
-│       ├── agic_fabric_connector/
-│       │   ├── base/            # BaseConnector, metadata, bronze writer
-│       │   ├── config/          # Config loading & models
-│       │   ├── auth/            # Auth strategies
-│       │   ├── modules/         # CRM, BC, SQL module implementations
-│       │   └── utils/           # Shared utilities
-│       └── notebooks/           # Fabric notebook templates (deployed at runtime)
-├── scripts/                     # DevOps scripts (PowerShell)
-│   ├── Setup/                   # Initial setup & environment configuration
-│   ├── Build/                   # Build & packaging
-│   ├── Run/                     # Local dev server startup
-│   └── Deploy/                  # Deployment to cloud
-├── .ai/                         # AI context & commands (Copilot/Claude guidance)
-│   ├── context/                 # fabric-workload.md, fabric.md (SDK conventions)
-│   ├── commands/                # Automated procedures (createItem, deployWorkload, etc.)
-│   ├── AGENTS.md                # Product vision & architectural principles
-│   └── architecture/            # target-architecture.md (Phase 2 blueprint)
-├── .github/copilot-instructions.md  # GitHub Copilot rules (component patterns, manifest handling)
-├── docs/                        # User documentation
-├── Start-Workload.ps1           # Quick launcher for local dev
-└── README.md                    # Project overview
-```
+| Path | Purpose |
+|------|---------|
+| `Workload/` | Frontend — React/TypeScript, Fabric SDK, Fluent UI |
+| `backend/` | FastAPI job-orchestration service |
+| `connector/runtime/` | Python package `agic-fabric-connector` (Spark notebook runtime) |
+| `scripts/` | PowerShell DevOps scripts (Setup/, Build/, Run/, Deploy/) |
+| `.ai/` | AI context & automation commands for Copilot/Claude |
+| `Start-Workload.ps1` | One-command local launcher (dev server + DevGateway) |
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 18, TypeScript, Redux Toolkit, Fluent UI (v8 + v9), webpack 5 |
+| **Frontend** | React 18, TypeScript, Redux Toolkit, Fluent UI (v8 + v9), webpack 5, i18next |
 | **Backend** | Python 3.11+, FastAPI, Uvicorn, Pydantic |
 | **Data** | Delta Lake, PyArrow, Pandas, SQLAlchemy |
 | **Auth** | Entra ID (OAuth 2.0), JWT validation, MSAL Python |
@@ -91,9 +45,11 @@ npm start
 .\scripts\Run\StartDevServer.ps1
 
 # Build for environment
-npm run build:dev      # Development build
 npm run build:test     # Test/staging build
 npm run build:prod     # Production build (minified, optimized)
+
+# Type-check only (no ESLint config in project)
+npx tsc --noEmit
 
 # Build manifest package (generates NuGet from templates)
 .\scripts\Build\BuildManifestPackage.ps1 -Environment prod
@@ -146,29 +102,22 @@ pip install -e .
 
 ### Frontend Item Structure (Microsoft Fabric SDK Convention)
 
-Every custom item follows a rigid 4-file pattern (e.g., `ConnectorItem`):
+**HelloWorldItem** (`Workload/app/items/HelloWorldItem/`) is the canonical reference sample. It follows the minimal 4-file pattern:
 
-```typescript
-// 1. ConnectorItemDefinition.ts — Data model/state interface
-export interface ConnectorItemDefinition {
-  config: ConnectorConfig;
-  runHistory: RunHistoryEntry[];
-  // ...
-}
+| File | Role |
+| --- | --- |
+| `HelloWorldItemDefinition.ts` | Data model/state interface |
+| `HelloWorldItemEditor.tsx` | Main container (uses `ItemEditorDefaultView`) |
+| `HelloWorldItemRibbon.tsx` | Toolbar (mandatory `homeToolbarActions` + optional `additionalToolbars`) |
+| `HelloWorldItemEmptyView.tsx` | First-run onboarding (no config yet) |
 
-// 2. ConnectorItemEditor.tsx — Main container component
-// Uses ItemEditorDefaultView, handles state, navigation, ribbon
-export function ConnectorItemEditor(props: ItemEditorProps) {
-  return <ItemEditorDefaultView center={{...}} left={{...}} />;
-}
+**ConnectorItem** (`Workload/app/items/ConnectorItem/`) is more complex and adds subdirectories:
 
-// 3. ConnectorItemEditorRibbon.tsx — Toolbar with save/settings actions
-// Always includes: homeToolbarActions (mandatory) + optional additionalToolbars
-// Uses createSaveAction(), createSettingsAction() factories
+- `wizard/` — 8-step configuration wizard: `WizardSourceStep` → `WizardModuleStep` → `WizardAuthStep` → `WizardConfigStep` → `WizardEntityStep` → `WizardScheduleStep` → `WizardStorageStep` → `WizardReviewStep`
+- `ribbon/` — ribbon actions factory (`ribbonActionFactory.ts` + `ConnectorItemRibbon.tsx`)
+- `dashboard/` — post-config dashboard: `ConnectorDashboard`, `RunHistoryTable`, `RunDetailView`, `EntityStatusList`, `EntityDetailView`
 
-// 4. ConnectorItemEditorEmptyView.tsx — Initial state (no configuration yet)
-// Guides user through onboarding wizard
-```
+**Adding a new connector type** requires only one change: push a new `ConnectorDefinition` into `CONNECTOR_REGISTRY` in `Workload/app/items/ConnectorItem/wizard/connectorRegistry.ts`. The wizard UI, validation pipeline, and state management are entirely data-driven from that registry.
 
 **Key Constraints:**
 - Use Fluent UI v9 components (`@fluentui/react-components`) preferentially; v8 only as fallback
@@ -389,23 +338,13 @@ Key decisions captured in `.ai/architecture/target-architecture.md`:
 6. **Tenant Isolation**: Each customer's data isolated in their own OneLake workspace
 7. **Secret Management**: Zero trust — credentials never in code; resolved via Fabric Connections or Key Vault
 
-## Copilot & AI Guidelines
+## AI Context Files
 
-The repository includes AI-specific guidance:
+Always reference these before implementing features:
 
-- **.github/copilot-instructions.md**: GitHub Copilot enhanced features, code generation patterns, context awareness
-- **.ai/context/fabric-workload.md**: SDK conventions for item development (4-file pattern, ribbon, views)
-- **.ai/context/fabric.md**: Microsoft Fabric platform knowledge
-- **.ai/commands/**: Automation procedures (createItem.md, deployWorkload.md, etc.)
-- **.ai/AGENTS.md**: Long-term product vision, architectural principles, scalability model
-
-**Critical Copilot Patterns:**
-- Always use Fluent v9 components; migrate v8 imports to v9
-- Ribbon MUST include `homeToolbarActions` (mandatory) + optional `additionalToolbars`
-- Use `createItemWrapper()` for OneLake storage operations
-- Use static view registration with `useViewNavigation()` hook
-- ItemEditor center panel handles scrolling; views use `height: auto`
-- Message bars use static registration with `showInViews` to control visibility
+- `.ai/AGENTS.md` — product vision and architectural principles
+- `.ai/context/fabric-workload.md` — SDK conventions (item patterns, ribbon, views)
+- `.github/copilot-instructions.md` — full code-generation patterns and constraints
 
 ## Testing & Debugging
 
@@ -462,3 +401,365 @@ The `release/` directory contains:
 ---
 
 **For Copilot/Claude Users**: Always reference `.ai/AGENTS.md` for product vision and `.github/copilot-instructions.md` for code generation patterns before implementing features. Consistency with existing item structure (HelloWorldItem, ConnectorItem) is mandatory.
+
+---
+
+## Active Task: Multi-Workload Decomposition (Opus Session)
+
+> **Branch**: `feature/workload-decomposition` (created from `feature/multi-connector-selection`)
+> **Status**: In progress
+> **Owner**: Agic Technology srl
+> **Model**: Claude Opus (claude.ai/code)
+
+### Objective
+
+Decompose the single **Universal Connector** workload into **3–5 focused Custom Workloads** that:
+
+1. Each does exactly **one thing** — one data source / one business domain
+2. Share the **same backend** (single FastAPI deployment on Azure)
+3. Are published as **separate entries** on Fabric AppSource / workload hub
+4. Live in **this same repository**, each in its own subfolder under `workloads/`
+5. The **MVP** is `customer-insight-journey` — complete this first before the others
+
+---
+
+### Planned Workloads
+
+| Priority | Workload ID | Display Name | Source | Entities |
+|----------|-------------|--------------|--------|----------|
+| 1 — MVP | `customer-insight-journey` | Customer Insight Journey | Dynamics 365 CRM / Dataverse | 3 tables already configured — **identify from `connectorRegistry.ts` and CRM module** |
+| 2 | `sales-crm` | Sales CRM | Dynamics 365 CRM / Dataverse | Sales-specific entities |
+| 3 | `business-central` | Business Central | BC OData v4 | All current BC entities |
+| 4 | `sql-db` | SQL DB Connector | Azure SQL / SQL Server | User-defined tables |
+| 5 | TBD | (identify from code) | (additional source if found) | — |
+
+> Before implementing, **read `Workload/app/items/ConnectorItem/wizard/connectorRegistry.ts`** and **`backend/connectors/crm/`** to determine the exact 3 tables scoped to Customer Insight Journey.
+
+---
+
+### Target Repository Structure
+
+Migrate from the current flat layout to this monorepo structure:
+
+```
+/
+├── backend/                          # Shared FastAPI backend — single deployment
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── jobs.py               # Existing — extend with workload routing
+│   │   │   └── workloads.py          # NEW — workload identity resolution
+│   │   ├── connectors/
+│   │   │   ├── base.py               # BaseConnector (keep as-is)
+│   │   │   ├── crm/                  # CRMConnector (keep as-is)
+│   │   │   ├── bc/                   # BCConnector (keep as-is)
+│   │   │   └── sql/                  # SQLConnector (keep as-is)
+│   │   └── workload_config/          # NEW — per-workload entity/config scoping
+│   │       ├── customer_insight_journey.py
+│   │       ├── sales_crm.py
+│   │       ├── business_central.py
+│   │       └── sql_db.py
+│   └── main.py
+│   └── Dockerfile
+│   └── requirements.txt
+│
+├── workloads/                        # One subfolder per published workload
+│   ├── customer-insight-journey/     # MVP — DO THIS FIRST
+│   │   ├── frontend/                 # React/TS frontend (stripped from ConnectorItem)
+│   │   ├── manifest/                 # WorkloadManifest.xml + Product.json + icons
+│   │   └── config/
+│   │       └── workload.json         # Entity scope, display config, workload metadata
+│   ├── sales-crm/
+│   │   ├── frontend/
+│   │   ├── manifest/
+│   │   └── config/workload.json
+│   ├── business-central/
+│   │   ├── frontend/
+│   │   ├── manifest/
+│   │   └── config/workload.json
+│   └── sql-db/
+│       ├── frontend/
+│       ├── manifest/
+│       └── config/workload.json
+│
+├── shared/                           # Shared code — DO NOT DUPLICATE
+│   ├── components/                   # Shared Fluent UI components
+│   ├── types/                        # Shared TypeScript types
+│   ├── hooks/                        # Shared React hooks
+│   └── utils/                        # Shared utilities
+│
+├── connector/runtime/                # Keep as-is (agic-fabric-connector wheel)
+├── scripts/                          # Keep as-is, extend for multi-workload builds
+└── Workload/                         # LEGACY — migrate to workloads/ then deprecate
+```
+
+---
+
+### Backend: Workload Identity & Routing
+
+The single FastAPI backend must detect which workload is calling it and scope the response accordingly.
+
+**Strategy — `X-Workload-Id` request header** (simplest, no path changes needed):
+
+```python
+# backend/app/api/workloads.py  (NEW FILE)
+from enum import Enum
+
+class WorkloadId(str, Enum):
+    CUSTOMER_INSIGHT_JOURNEY = "customer-insight-journey"
+    SALES_CRM = "sales-crm"
+    BUSINESS_CENTRAL = "business-central"
+    SQL_DB = "sql-db"
+
+def get_workload_id(request: Request) -> WorkloadId:
+    """Extract workload identity from request header."""
+    wid = request.headers.get("X-Workload-Id")
+    if not wid or wid not in WorkloadId._value2member_map_:
+        raise HTTPException(status_code=400, detail=f"Missing or invalid X-Workload-Id header")
+    return WorkloadId(wid)
+```
+
+```python
+# backend/app/workload_config/customer_insight_journey.py  (NEW FILE)
+# Defines which entities/tables this workload exposes — read from code analysis
+
+WORKLOAD_METADATA = {
+    "id": "customer-insight-journey",
+    "display_name": "Customer Insight Journey",
+    "source": "crm",
+    "entities": [
+        # TODO: populate from connectorRegistry.ts + CRM module analysis
+        # Example:
+        # {"id": "contact", "display_name": "Contact", "table": "bronze_crm/contact"},
+        # {"id": "msdynmkt_journey", ...},
+        # {"id": "msdynmkt_customerjourney", ...},
+    ]
+}
+```
+
+```python
+# backend/app/api/jobs.py  (EXTEND existing)
+@router.post("/v1/items/{itemId}/runJob")
+async def run_job(
+    itemId: str,
+    job_request: JobRunRequest,
+    workload_id: WorkloadId = Depends(get_workload_id)
+):
+    # Load workload-scoped config (restricts which entities are synced)
+    workload_config = load_workload_config(workload_id)
+    
+    # Route to correct connector (CRM/BC/SQL) — unchanged from current logic
+    connector = connector_factory(workload_config.source, job_request)
+    
+    # Scope ingestion to only this workload's entities
+    connector.set_entity_scope(workload_config.entities)
+    
+    return await connector.ingest()
+```
+
+**API Contract** (all workloads, workload-id from header):
+
+```
+GET  /v1/workloads/config          → workload metadata + entity list
+GET  /v1/items/{itemId}/runJob     → trigger ingestion (scoped by X-Workload-Id)
+GET  /v1/items/{itemId}/jobs/{id}  → job status
+GET  /v1/items/{itemId}/runs       → run history
+```
+
+---
+
+### Frontend: Per-Workload Scope
+
+Each workload frontend is a **stripped-down version of ConnectorItem** with:
+
+1. **Wizard reduced** — remove `WizardModuleStep` (source is fixed, not user-selectable)
+2. **Entity step locked** — show only this workload's entities, pre-checked, not editable
+3. **Dashboard scoped** — only show tables relevant to this workload
+4. **Workload ID injected** — set `X-Workload-Id` header on every backend call
+
+```typescript
+// workloads/customer-insight-journey/frontend/config/workloadConfig.ts
+export const WORKLOAD_CONFIG = {
+  workloadId: "customer-insight-journey",
+  displayName: "Customer Insight Journey",
+  source: "crm" as const,
+  // Entities locked for this workload — no user selection
+  entities: [
+    // TODO: populate after backend analysis
+  ],
+  // Wizard steps enabled for this workload
+  wizardSteps: ["auth", "schedule", "storage", "review"], // source + entities are pre-set
+};
+```
+
+**Shared header injection** (add to all API calls):
+
+```typescript
+// shared/utils/apiClient.ts
+export function getWorkloadHeaders(): Record<string, string> {
+  return {
+    "X-Workload-Id": WORKLOAD_CONFIG.workloadId,
+  };
+}
+```
+
+---
+
+### Manifest per Workload
+
+Each workload needs its own `WorkloadManifest.xml`. Key differences:
+
+```xml
+<!-- workloads/customer-insight-journey/manifest/WorkloadManifest.xml -->
+<Workload 
+  name="{{WORKLOAD_NAME}}"
+  displayName="Customer Insight Journey"
+  version="{{WORKLOAD_VERSION}}">
+  
+  <Description>Ingest Dynamics 365 Customer Journey data into your Fabric Lakehouse.</Description>
+  <FrontendEndpoint>https://cij.connector.agic.technology</FrontendEndpoint>
+  
+  <!-- Shared backend — workload identified via X-Workload-Id header -->
+  <BackendEndpoint>https://backend-{{ENV}}.azurewebsites.net</BackendEndpoint>
+  
+  <Items>
+    <Item name="{{WORKLOAD_NAME}}.ConnectorItem" ... />
+  </Items>
+</Workload>
+```
+
+Each workload gets:
+- Unique `displayName` and `Description`
+- Its own frontend subdomain (e.g., `cij.connector.agic.technology`, `bc.connector.agic.technology`)
+- Same `BackendEndpoint` (shared backend)
+
+---
+
+### Azure Deployment Architecture
+
+**Recommendation: Azure Container Apps (shared backend) + Azure Static Web Apps (per workload frontend)**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Fabric Portal                                           │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
+│  │  CIJ     │ │  Sales   │ │   BC     │ │  SQL DB  │  │
+│  │ Workload │ │  CRM     │ │Workload  │ │Workload  │  │
+│  └──────┬───┘ └──────┬───┘ └──────┬───┘ └──────┬───┘  │
+└─────────┼────────────┼────────────┼────────────┼────────┘
+          │            │            │            │
+          ▼            ▼            ▼            ▼
+┌──────────────────────────────────────────────────────────┐
+│  Azure Static Web Apps (per workload — separate deploy)  │
+│  cij.connector.agic.technology                           │
+│  sales.connector.agic.technology  ...                    │
+└────────────────────────┬─────────────────────────────────┘
+                         │ X-Workload-Id header
+                         ▼
+┌──────────────────────────────────────────────────────────┐
+│  Azure Container Apps — Single Backend                   │
+│  backend.connector.agic.technology                       │
+│  FastAPI + all connectors (CRM / BC / SQL)               │
+│  Scale-to-zero enabled                                   │
+└──────────────────────────────────────────────────────────┘
+```
+
+**Rationale:**
+- Container Apps: scale-to-zero saves cost, Docker already in repo, stateless FastAPI
+- Static Web Apps: free tier viable per workload, independent deploy per frontend
+- No Azure Functions needed (job orchestration is already FastAPI + Fabric Scheduler)
+
+---
+
+### Git Branching & PR Strategy
+
+```bash
+# Create working branch from the correct base
+git checkout feature/multi-connector-selection
+git pull origin feature/multi-connector-selection
+git checkout -b feature/workload-decomposition
+
+# Commit structure (one commit per logical unit):
+# 1. Repo restructure (move files, create workloads/ and shared/)
+# 2. Backend: workload routing + config files
+# 3. Workload: customer-insight-journey (MVP — frontend + manifest + config)
+# 4. Workload: business-central
+# 5. Workload: sales-crm
+# 6. Workload: sql-db
+# 7. CI/CD: build scripts per workload
+```
+
+**PR Strategy:** One PR into `feature/multi-connector-selection` with the full decomposition. Review per-workload using PR file filters.
+
+---
+
+### Step-by-Step Implementation Order
+
+Follow this exact order to avoid breaking existing functionality:
+
+1. **Read before writing**
+   - [ ] Read `Workload/app/items/ConnectorItem/wizard/connectorRegistry.ts` — identify Customer Insight Journey entities
+   - [ ] Read `backend/connectors/crm/` — confirm entity list and field mappings
+   - [ ] Read `Workload/Manifest/Product.json` and `WorkloadManifest.xml` — understand current manifest structure
+
+2. **Create branch**
+   ```bash
+   git checkout feature/multi-connector-selection && git pull
+   git checkout -b feature/workload-decomposition
+   ```
+
+3. **Restructure repo** (no logic changes yet)
+   - [ ] Create `workloads/`, `shared/` directories
+   - [ ] Copy (not move) `Workload/` content into `workloads/customer-insight-journey/frontend/` as starting point
+   - [ ] Extract shared components into `shared/`
+
+4. **Backend: add workload routing**
+   - [ ] Create `backend/app/api/workloads.py`
+   - [ ] Create `backend/app/workload_config/` with one file per workload
+   - [ ] Extend `backend/app/api/jobs.py` with workload scoping
+   - [ ] Add `X-Workload-Id` header validation
+
+5. **MVP: Customer Insight Journey frontend**
+   - [ ] Strip wizard to only: Auth → Schedule → Storage → Review (remove Module step)
+   - [ ] Lock entity selection to the 3 CIJ tables (pre-checked, read-only)
+   - [ ] Inject `X-Workload-Id: customer-insight-journey` on all API calls
+   - [ ] Create `workloads/customer-insight-journey/manifest/` from existing manifest template
+
+6. **MVP: Customer Insight Journey manifest**
+   - [ ] Create `WorkloadManifest.xml` with CIJ-specific metadata
+   - [ ] Create `Product.json` with CIJ display name/description
+   - [ ] Update build scripts to support `--workload customer-insight-journey`
+
+7. **Test MVP end-to-end**
+   - [ ] Local: `.\Start-Workload.ps1` pointing to CIJ frontend
+   - [ ] Verify `X-Workload-Id` header reaches backend
+   - [ ] Verify only CIJ entities appear in UI and are ingested
+
+8. **Repeat steps 5–7 for**: `business-central`, `sales-crm`, `sql-db`
+
+9. **CI/CD**
+   - [ ] GitHub Actions workflow: build + deploy per workload (matrix strategy)
+   - [ ] Single backend workflow: Docker build + push to Container Apps
+
+---
+
+### Constraints (Non-Negotiable)
+
+- **Do NOT modify** `feature/multi-connector-selection` directly — always work on `feature/workload-decomposition`
+- **Backend stays one deployment** — no splitting connectors into separate services
+- **No code duplication** — shared UI components go to `shared/`, never copied per workload
+- **Existing HelloWorldItem untouched** — it is not part of this decomposition
+- **Bronze layer naming preserved** — `bronze_crm/`, `bronze_bc/`, `bronze_sql/` paths unchanged
+- **Customer Insight Journey is MVP** — fully working before starting other workloads
+- **Manifest placeholders preserved** — `{{WORKLOAD_NAME}}`, `{{WORKLOAD_VERSION}}` pattern mandatory
+
+---
+
+### Definition of Done
+
+A workload is complete when:
+- [ ] Frontend builds independently with `npm run build:prod` from its own directory
+- [ ] Manifest NuGet package generates correctly for this workload
+- [ ] Backend routes correctly based on `X-Workload-Id` header
+- [ ] Only the correct entities appear in the UI for this workload
+- [ ] Local end-to-end test passes (create item → run job → data in Bronze Lakehouse)
+- [ ] Published to Fabric AppSource (or direct tenant deployment) as a separate entry
