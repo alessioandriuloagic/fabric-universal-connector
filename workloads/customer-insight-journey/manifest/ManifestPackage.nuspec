@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata>
+    <id>{{WORKLOAD_NAME}}</id>
+    <version>{{WORKLOAD_VERSION}}</version>
+    <authors>Agic Technology srl</authors>
+    <owners>Agic Technology srl</owners>
+    <description>Microsoft Fabric Custom Workload manifest for {{WORKLOAD_NAME}} — Customer Insight Journey.</description>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+  </metadata>
+  <files>
+    <file src="{{MANIFEST_FOLDER}}\*.xml"       target="BE" />
+    <file src="{{MANIFEST_FOLDER}}\*.json"      target="FE" />
+    <file src="{{MANIFEST_FOLDER}}\assets\**"   target="FE\assets" />
+  </files>
+</package>

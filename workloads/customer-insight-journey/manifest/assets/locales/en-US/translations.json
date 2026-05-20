@@ -1,0 +1,16 @@
+{
+    "CIJ_Display_Name": "Customer Insight Journey",
+    "CIJ_Full_Display_Name": "Customer Insight Journey Connector",
+    "CIJ_Description": "Ingest Dynamics 365 Customer Insights Journey data into your Fabric Bronze Lakehouse.",
+    "CIJ_Hub_Slogan": "Connect your Customer Insights Journey data to Microsoft Fabric.",
+    "CIJ_Hub_Description": "Customer Insight Journey Connector enables incremental ingestion of Contact, Marketing Email, and Journey data from Dynamics 365 / Dataverse into your Fabric Bronze Lakehouse — no infrastructure required.",
+    "CIJ_Hub_GetStarted_1_Title": "Get Started",
+    "CIJ_Hub_GetStarted_1_Sub_Title": "Connect your Customer Insights environment",
+    "CIJ_Hub_GetStarted_1_Description": "Create a Connector item and follow the wizard to configure authentication and schedule your first ingestion run.",
+    "ConnectorItem_DisplayName": "Customer Insight Journey",
+    "ConnectorItem_DisplayName_Plural": "Customer Insight Journeys",
+    "ConnectorItem_Description": "Ingest Contact, Marketing Email, and Journey data from Dynamics 365 into your Bronze Lakehouse.",
+    "ConnectorItemEmptyView_Title": "Connect your Customer Insights Journey environment",
+    "ConnectorItemEmptyView_Description": "Configure your connector to start ingesting Contact, Marketing Email, and Journey data into your Fabric Bronze Lakehouse.",
+    "ConnectorConfig_EntitiesLocked": "These entities are fixed for this workload."
+}
