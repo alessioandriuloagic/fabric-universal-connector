@@ -74,7 +74,8 @@ async def test_fetch_all_filter_expression_encoded(client):
         )
 
     url_called = mock_get.call_args[0][0]
-    assert "$filter=" in url_called
+    # The client URL-encodes query parameters; $filter becomes %24filter
+    assert "%24filter=" in url_called or "$filter=" in url_called
     assert "%26" in url_called or "&" in url_called  # URL-encoded ampersand
 
 

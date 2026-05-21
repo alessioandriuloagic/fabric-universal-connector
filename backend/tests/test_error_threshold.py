@@ -140,7 +140,9 @@ async def test_error_threshold_0_aborts_on_first_failure():
 
 
 async def test_single_entity_all_fail_status_is_failed():
-    connector = _StubConnector(entities=["e1"], fail_indices=[0])
+    # 1/1 entities fail (100%). With threshold=100.0, the run is not aborted
+    # and completes with status="failed" (all entities failed, none succeeded).
+    connector = _StubConnector(entities=["e1"], fail_indices=[0], error_threshold=100.0)
     with patch("app.connectors.base_connector.BaseConnector._load_watermark", AsyncMock(return_value=None)), \
          patch("app.connectors.base_connector.BaseConnector._save_watermark", AsyncMock()), \
          patch("app.services.onelake_writer.write_bronze", AsyncMock(return_value=0)):

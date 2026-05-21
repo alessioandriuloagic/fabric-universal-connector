@@ -49,7 +49,7 @@ def test_add_metadata_columns_values_correct():
     assert result["_connector_id"].iloc[0] == "conn-abc"
     assert result["_module_type"].iloc[0] == "crm"
     assert result["_entity_name"].iloc[0] == "lead"
-    assert result["_is_current"].iloc[0] is True
+    assert result["_is_current"].iloc[0] == True  # noqa: E712 — numpy bool equality
 
 
 def test_add_metadata_columns_preserves_existing_operation():

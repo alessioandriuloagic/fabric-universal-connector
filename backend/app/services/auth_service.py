@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import msal
+import httpx
 from azure.identity.aio import ManagedIdentityCredential, DefaultAzureCredential
 from azure.keyvault.secrets.aio import SecretClient
 
@@ -139,8 +140,6 @@ async def _resolve_fabric_connection(
       GET /v1/connections/{connectionId}/getSecrets
       Authorization: Bearer {fabric_token}
     """
-    import httpx
-
     url = (
         f"{FABRIC_CONNECTIONS_API}/v1/connections"
         f"/{auth.fabric_connection_id}/getSecrets"

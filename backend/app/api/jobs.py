@@ -16,8 +16,7 @@ import asyncio
 import json
 import logging
 import os
-from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Optional
 
 import jwt as _jwt
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
@@ -50,19 +49,29 @@ if _SKIP_VALIDATION:
     )
 
 
-@lru_cache(maxsize=1)
 def _jwks_client() -> "_jwt.PyJWKClient":
     url = (
         f"https://login.microsoftonline.com/{_FABRIC_TENANT_ID}"
         "/discovery/v2.0/keys"
     )
-    return _jwt.PyJWKClient(url, cache_keys=True)
+    return _jwt.PyJWKClient(url, cache_keys=True, lifespan=300)
+
+
+_JWKS_CLIENT: Optional["_jwt.PyJWKClient"] = None
+
+
+def _get_jwks_client() -> "_jwt.PyJWKClient":
+    """Returns a module-level JWKS client with a 300-second key TTL."""
+    global _JWKS_CLIENT
+    if _JWKS_CLIENT is None:
+        _JWKS_CLIENT = _jwks_client()
+    return _JWKS_CLIENT
 
 
 # ── Token extraction + validation ─────────────────────────────────────────────
 
-def _extract_bearer(authorization: str = Header(...)) -> str:
-    if not authorization.startswith("Bearer "):
+def _validate_bearer_token(authorization: Optional[str] = Header(default=None)) -> str:
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid Authorization header",
@@ -73,7 +82,7 @@ def _extract_bearer(authorization: str = Header(...)) -> str:
         return token
 
     try:
-        client = _jwks_client()
+        client = _get_jwks_client()
         signing_key = client.get_signing_key_from_jwt(token)
         _jwt.decode(
             token,
@@ -87,16 +96,16 @@ def _extract_bearer(authorization: str = Header(...)) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired",
         )
-    except _jwt.InvalidTokenError as exc:
+    except _jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {exc}",
+            detail="Invalid token",
         )
 
     return token
 
 
-BearerToken = Annotated[str, Depends(_extract_bearer)]
+BearerToken = Annotated[str, Depends(_validate_bearer_token)]
 
 
 # ── WDK endpoints ──────────────────────────────────────────────────────────────
@@ -255,6 +264,11 @@ async def _execute_job(
         else:
             raise ConfigValidationError(f"Unknown moduleType: {module_type}")
 
+        # Apply workload entity scope (restricts ingestion to workload-allowed entities).
+        allowed = _get_entity_scope(workload_id)
+        if allowed is not None:
+            connector.set_entity_scope(allowed)
+
         result = await connector.run()
 
         if result.status == "success":
@@ -303,6 +317,28 @@ async def _execute_job(
             error_code="UNEXPECTED_ERROR",
             error_message=str(exc),
         )
+
+
+def _get_entity_scope(workload_id: WorkloadId) -> Optional[frozenset[str]]:
+    """Return the allowed entity name set for scoped workloads, or None if unrestricted.
+
+    Returns None for UNIVERSAL (no restriction) and for SQL_DB (user-defined tables).
+    For all other workloads, returns the frozenset from the matching workload config.
+    """
+    if workload_id == WorkloadId.UNIVERSAL:
+        return None
+
+    from app.workload_config import customer_insight_journey, sales_crm, business_central, sql_db  # noqa: PLC0415
+
+    _scope_map: dict[WorkloadId, frozenset[str]] = {
+        WorkloadId.CUSTOMER_INSIGHT_JOURNEY: customer_insight_journey.ALLOWED_ENTITY_NAMES,
+        WorkloadId.SALES_CRM: sales_crm.ALLOWED_ENTITY_NAMES,
+        WorkloadId.BUSINESS_CENTRAL: business_central.ALLOWED_ENTITY_NAMES,
+        WorkloadId.SQL_DB: sql_db.ALLOWED_ENTITY_NAMES,
+    }
+    scope = _scope_map.get(workload_id)
+    # Empty frozenset means user-defined (e.g. SQL_DB) — treat as unrestricted.
+    return scope if scope else None
 
 
 def _resolve_lakehouse_id(config) -> str:

@@ -428,7 +428,7 @@ Decompose the single **Universal Connector** workload into **3–5 focused Custo
 | Priority | Workload ID | Display Name | Source | Entities |
 |----------|-------------|--------------|--------|----------|
 | 1 — MVP | `customer-insight-journey` | Customer Insight Journey | Dynamics 365 CRM / Dataverse | 3 tables already configured — **identify from `connectorRegistry.ts` and CRM module** |
-| 2 | `sales-crm` | Sales CRM | Dynamics 365 CRM / Dataverse | Sales-specific entities |
+| 2 | `sales-crm` | Sales CRM | Dynamics 365 CRM / Dataverse | lead, opportunity, account, contact, quote, salesorder, invoice |
 | 3 | `business-central` | Business Central | BC OData v4 | All current BC entities |
 | 4 | `sql-db` | SQL DB Connector | Azure SQL / SQL Server | User-defined tables |
 | 5 | TBD | (identify from code) | (additional source if found) | — |

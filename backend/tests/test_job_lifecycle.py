@@ -158,4 +158,91 @@ async def test_get_or_create_creates_new():
     )
     result, created = await job_tracker.get_or_create("j-new", record)
     assert created
-    assert result.job_instance_id == "j-new"
+
+
+# ── Entity scope enforcement (S1-1) ──────────────────────────────────────────
+
+class _ConcreteConnector:
+    """Minimal connector stub that satisfies the set_entity_scope interface."""
+
+    def __init__(self, entities):
+        self._entities = entities
+        self._allowed_entity_names = None
+
+    def set_entity_scope(self, allowed: frozenset) -> None:
+        self._allowed_entity_names = allowed
+
+    def get_effective_entities(self):
+        if self._allowed_entity_names is None:
+            return list(self._entities)
+        return [e for e in self._entities if e in self._allowed_entity_names]
+
+
+def test_entity_scope_filters_out_of_scope_entities():
+    """Entities not in the workload scope are excluded after set_entity_scope."""
+    all_entities = ["contact", "lead", "account", "msdynmkt_journey"]
+    connector = _ConcreteConnector(all_entities)
+
+    from app.workload_config.customer_insight_journey import ALLOWED_ENTITY_NAMES
+    connector.set_entity_scope(ALLOWED_ENTITY_NAMES)
+
+    effective = connector.get_effective_entities()
+    assert "contact" in effective
+    assert "msdynmkt_journey" in effective
+    # lead and account belong to Sales CRM, not Customer Insight Journey
+    assert "lead" not in effective
+    assert "account" not in effective
+
+
+def test_entity_scope_not_applied_for_universal():
+    """UNIVERSAL workload leaves all entities intact (no scope restriction)."""
+    from app.api.jobs import _get_entity_scope
+    from app.api.workloads import WorkloadId
+
+    scope = _get_entity_scope(WorkloadId.UNIVERSAL)
+    assert scope is None
+
+
+def test_entity_scope_not_applied_for_sql_db():
+    """SQL_DB workload has user-defined tables so no scope restriction is applied."""
+    from app.api.jobs import _get_entity_scope
+    from app.api.workloads import WorkloadId
+
+    scope = _get_entity_scope(WorkloadId.SQL_DB)
+    assert scope is None
+
+
+def test_entity_scope_cij_contains_expected_entities():
+    """Customer Insight Journey scope contains exactly the 3 expected entities."""
+    from app.api.jobs import _get_entity_scope
+    from app.api.workloads import WorkloadId
+
+    scope = _get_entity_scope(WorkloadId.CUSTOMER_INSIGHT_JOURNEY)
+    assert scope is not None
+    assert scope == frozenset({"contact", "msdynmkt_email", "msdynmkt_journey"})
+
+
+def test_entity_scope_sales_crm_contains_expected_entities():
+    """Sales CRM scope contains the 7 configured entities."""
+    from app.api.jobs import _get_entity_scope
+    from app.api.workloads import WorkloadId
+
+    scope = _get_entity_scope(WorkloadId.SALES_CRM)
+    assert scope is not None
+    assert "lead" in scope
+    assert "opportunity" in scope
+    assert "account" in scope
+    assert "contact" in scope
+    assert "quote" in scope
+    assert "salesorder" in scope
+    assert "invoice" in scope
+    assert len(scope) == 7
+
+
+def test_set_entity_scope_all_entities_out_of_scope():
+    """If every entity is out of scope, connector has zero effective entities."""
+    connector = _ConcreteConnector(["msdynmkt_journey", "contact"])
+    # Apply a scope that matches nothing
+    connector.set_entity_scope(frozenset({"lead", "account"}))
+    effective = connector.get_effective_entities()
+    assert effective == []

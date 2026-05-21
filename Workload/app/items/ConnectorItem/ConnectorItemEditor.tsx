@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Button } from "@fluentui/react-components";
+import { Button, MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-components";
 import { PageProps, ContextProps } from "../../App";
 import {
   ItemWithDefinition,
@@ -22,7 +22,7 @@ import {
   EntityWatermark,
 } from "./ConnectorItemDefinition";
 import { normalizeToV2 } from "./wizard/migrationAdapter";
-import { recomputeConnectorStatuses } from "./wizard/wizardValidation";
+import { recomputeConnectorStatuses, validateStep } from "./wizard/wizardValidation";
 import { ConnectorItemEmptyView } from "./ConnectorItemEmptyView";
 import { ConnectorItemRibbon } from "./ribbon/ConnectorItemRibbon";
 import { WizardConnectorStep } from "./wizard/WizardConnectorStep";
@@ -49,6 +49,44 @@ export const VIEWS = {
   RUN_DETAIL:    "run-detail",
   ENTITY_DETAIL: "entity-detail",
 } as const;
+
+// ── Error boundary for wizard and dashboard views ─────────────────────────────
+
+interface ErrorBoundaryState { hasError: boolean; }
+
+class ConnectorErrorBoundary extends React.Component<
+  React.PropsWithChildren<{ label: string }>,
+  ErrorBoundaryState
+> {
+  constructor(props: React.PropsWithChildren<{ label: string }>) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error(`[ConnectorErrorBoundary:${this.props.label}]`, error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 24 }}>
+          <MessageBar intent="error">
+            <MessageBarBody>
+              <MessageBarTitle>Something went wrong</MessageBarTitle>
+              An unexpected error occurred in the {this.props.label}. Reload the page to try again.
+            </MessageBarBody>
+          </MessageBar>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export function ConnectorItemEditor({ workloadClient }: PageProps) {
   const pageContext = useParams<ContextProps>();
@@ -209,6 +247,12 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
     const isReviewStep = wizardState.step === WIZARD_STEPS.REVIEW;
 
     const handleNext = () => {
+      const { isValid, errors } = validateStep(wizardState, wizardState.step);
+      if (!isValid) {
+        updateWizard({ validationErrors: errors });
+        return;
+      }
+      updateWizard({ validationErrors: {} });
       const next = localNext(wizardState.step);
       if (next) {
         // Recompute connector statuses when leaving the CONFIG step so the
@@ -325,8 +369,22 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
 
   const views = [
     { name: VIEWS.EMPTY,    component: <EmptyViewWrapper /> },
-    { name: VIEWS.WIZARD,   component: <WizardView /> },
-    { name: VIEWS.DASHBOARD, component: <DashboardWrapper /> },
+    {
+      name: VIEWS.WIZARD,
+      component: (
+        <ConnectorErrorBoundary label="wizard">
+          <WizardView />
+        </ConnectorErrorBoundary>
+      ),
+    },
+    {
+      name: VIEWS.DASHBOARD,
+      component: (
+        <ConnectorErrorBoundary label="dashboard">
+          <DashboardWrapper />
+        </ConnectorErrorBoundary>
+      ),
+    },
     {
       name: VIEWS.RUN_DETAIL,
       component: <RunDetailView runs={runs} runId={selectedRunId} />,

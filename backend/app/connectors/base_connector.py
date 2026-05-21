@@ -88,7 +88,13 @@ class RetryPolicy:
         self.multiplier = multiplier
         self.max_backoff = max_backoff
 
-    def execute(self, fn, *args, **kwargs) -> Any:
+    def execute_sync(self, fn, *args, **kwargs) -> Any:
+        """Synchronous retry wrapper — blocks the calling thread via time.sleep.
+
+        WARNING: This method is intentionally synchronous and will block the
+        event loop if called from async code. Use execute_async() from coroutines.
+        Only call this method from a dedicated thread or a synchronous context.
+        """
         last_err: Optional[Exception] = None
         for attempt in range(self.max_attempts):
             try:
@@ -167,6 +173,15 @@ class BaseConnector(ABC):
         self.bearer_token = bearer_token
         self.retry_policy = retry_policy or RetryPolicy()
         self._run_id: Optional[str] = None
+        self._allowed_entity_names: Optional[frozenset[str]] = None
+
+    def set_entity_scope(self, allowed: frozenset[str]) -> None:
+        """Restrict ingestion to only the named entities.
+
+        Called by the job executor when the workload is scoped (non-UNIVERSAL).
+        Entities whose _entity_name() value is not in *allowed* are skipped.
+        """
+        self._allowed_entity_names = allowed
 
     # ── Public entry point ─────────────────────────────────────────────────────
 
@@ -193,6 +208,23 @@ class BaseConnector(ABC):
         entities = self._get_enabled_entities()
         if not entities:
             raise ConnectorFatalError("No entities enabled in config", "CONFIG_VALIDATION_ERROR")
+
+        # Apply workload scope restriction (set by the job executor for scoped workloads).
+        if self._allowed_entity_names is not None:
+            before = len(entities)
+            entities = [e for e in entities if self._entity_name(e) in self._allowed_entity_names]
+            skipped = before - len(entities)
+            if skipped:
+                log.info(
+                    "Entity scope applied: %d entities skipped (not in workload scope), %d remaining",
+                    skipped,
+                    len(entities),
+                )
+            if not entities:
+                raise ConnectorFatalError(
+                    "All configured entities are outside the workload scope",
+                    "ENTITY_SCOPE_VIOLATION",
+                )
 
         results = await self._process_entities(entities, auth)
 

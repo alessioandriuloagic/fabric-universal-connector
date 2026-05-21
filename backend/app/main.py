@@ -18,7 +18,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pythonjsonlogger import jsonlogger
@@ -55,7 +55,16 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if os.getenv("USE_TABLE_STORAGE", "false").lower() != "true":
+    app_env = os.getenv("APP_ENV", "").lower()
+    use_table_storage = os.getenv("USE_TABLE_STORAGE", "false").lower() == "true"
+
+    if app_env == "production" and not use_table_storage:
+        raise RuntimeError(
+            "In-memory job storage is not allowed in production. "
+            "Set USE_TABLE_STORAGE=true (and configure AZURE_STORAGE_ACCOUNT_NAME)."
+        )
+
+    if not use_table_storage:
         log.warning(
             "Job state is in-memory — will be lost on container restart. "
             "Set USE_TABLE_STORAGE=true for production deployments.",
@@ -91,25 +100,41 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+# ── CORS origin list ──────────────────────────────────────────────────────────
+
+_DEFAULT_CORS_ORIGINS = [
+    # Fabric platform
+    "https://api.fabric.microsoft.com",
+    "https://app.fabric.microsoft.com",
+    # ISV frontend deployments — one subdomain per scoped workload
+    "https://connector.agic.technology",
+    "https://cij.connector.agic.technology",
+    "https://sales.connector.agic.technology",
+    "https://bc.connector.agic.technology",
+    "https://sql.connector.agic.technology",
+]
+
+
+def _build_cors_origins() -> list[str]:
+    """Build the CORS allow-list from environment variables.
+
+    If CORS_ORIGINS is set (comma-separated), it replaces the default list.
+    CORS_EXTRA_ORIGINS (comma-separated) is always appended.
+    Document both in backend/.env.example.
+    """
+    primary_env = os.getenv("CORS_ORIGINS", "")
+    origins: list[str] = (
+        [o.strip() for o in primary_env.split(",") if o.strip()]
+        if primary_env
+        else list(_DEFAULT_CORS_ORIGINS)
+    )
+    origins += [o.strip() for o in os.getenv("CORS_EXTRA_ORIGINS", "").split(",") if o.strip()]
+    return origins
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        # Fabric platform
-        "https://api.fabric.microsoft.com",
-        "https://app.fabric.microsoft.com",
-        # ISV frontend deployments — one subdomain per scoped workload
-        "https://connector.agic.technology",
-        "https://cij.connector.agic.technology",
-        "https://sales.connector.agic.technology",
-        "https://bc.connector.agic.technology",
-        "https://sql.connector.agic.technology",
-        # Additional origins from environment (comma-separated)
-        *[
-            o.strip()
-            for o in os.getenv("CORS_EXTRA_ORIGINS", "").split(",")
-            if o.strip()
-        ],
-    ],
+    allow_origins=_build_cors_origins(),
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Authorization", "Content-Type", "X-Workload-Id"],
 )
@@ -174,9 +199,12 @@ async def health_check() -> dict:
 
 
 @app.get("/health/detailed", tags=["system"])
-async def health_detailed() -> dict:
+async def health_detailed(request: Request) -> dict:
     """
     Detailed health report including job statistics and configuration status.
+
+    Protected by X-Health-Token header. If HEALTH_TOKEN env var is not set,
+    the endpoint always returns 403 (fail-safe: no accidental exposure).
 
     Returns:
       - status: "ok" or "degraded"
@@ -185,8 +213,13 @@ async def health_detailed() -> dict:
       - jobs_last_24h: per-status job counts for the last 24 hours
       - onelake_configured: whether the OneLake account URL env var is set
       - registered_workloads: list of known workload IDs
-      - cors_origins_count: number of allowed CORS origins
     """
+    health_token = os.getenv("HEALTH_TOKEN", "")
+    if not health_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    provided_token = request.headers.get("X-Health-Token", "")
+    if not provided_token or provided_token != health_token:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     from app.services import job_tracker as _tracker
     from app.api.workloads import WorkloadId
 
@@ -229,6 +262,37 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error"},
     )
+
+
+# Request logging middleware runs outermost (last @app.middleware in file = first to execute).
+# It logs every request after the workload_id check so the workload_id header is available.
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    """Log every request with correlation ID, method, path, status, and duration."""
+    import time as _time
+    import uuid as _uuid
+
+    request_id = request.headers.get("X-Request-Id") or str(_uuid.uuid4())
+    workload_id = request.headers.get("X-Workload-Id", "")
+    start = _time.monotonic()
+
+    response = await call_next(request)
+
+    duration_ms = round((_time.monotonic() - start) * 1000, 1)
+    log.info(
+        "request",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+            "workload_id": workload_id,
+        },
+    )
+
+    response.headers["X-Request-Id"] = request_id
+    return response
 
 
 if __name__ == "__main__":
