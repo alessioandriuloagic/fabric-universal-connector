@@ -6,7 +6,7 @@
         "allowUnusedLabels": false,
         "downlevelIteration": true,
         "forceConsistentCasingInFileNames": true,
-        "importHelpers": true,
+        "importHelpers": false,
         "inlineSources": true,
         "jsx": "react",
         "module": "esnext",
@@ -30,6 +30,9 @@
         "paths": {
             "src/*": [
                 "./app/*"
+            ],
+            "shared/*": [
+                "../shared/*"
             ]
         }
     }

@@ -4,5 +4,20 @@
   "source": "businesscentral",
   "frontendUrl": "https://bc.connector.agic.technology",
   "wizardSteps": ["auth", "config", "schedule", "storage", "review"],
-  "entities": []
+  "entities": [
+    { "logicalName": "customers",            "displayName": "Customer",                   "bronzeTable": "bronze_bc/customers" },
+    { "logicalName": "vendors",              "displayName": "Vendor",                     "bronzeTable": "bronze_bc/vendors" },
+    { "logicalName": "items",                "displayName": "Item",                       "bronzeTable": "bronze_bc/items" },
+    { "logicalName": "salesOrders",          "displayName": "Sales Order",                "bronzeTable": "bronze_bc/salesOrders" },
+    { "logicalName": "salesOrderLines",      "displayName": "Sales Order Line",           "bronzeTable": "bronze_bc/salesOrderLines" },
+    { "logicalName": "salesInvoices",        "displayName": "Sales Invoice",              "bronzeTable": "bronze_bc/salesInvoices" },
+    { "logicalName": "salesInvoiceLines",    "displayName": "Sales Invoice Line",         "bronzeTable": "bronze_bc/salesInvoiceLines" },
+    { "logicalName": "purchaseOrders",       "displayName": "Purchase Order",             "bronzeTable": "bronze_bc/purchaseOrders" },
+    { "logicalName": "purchaseOrderLines",   "displayName": "Purchase Order Line",        "bronzeTable": "bronze_bc/purchaseOrderLines" },
+    { "logicalName": "purchaseInvoices",     "displayName": "Purchase Invoice",           "bronzeTable": "bronze_bc/purchaseInvoices" },
+    { "logicalName": "generalLedgerEntries", "displayName": "General Ledger Entry",       "bronzeTable": "bronze_bc/generalLedgerEntries" },
+    { "logicalName": "accounts",             "displayName": "Account (Chart of Accounts)","bronzeTable": "bronze_bc/accounts" },
+    { "logicalName": "employees",            "displayName": "Employee",                   "bronzeTable": "bronze_bc/employees" },
+    { "logicalName": "contacts",             "displayName": "Contact",                    "bronzeTable": "bronze_bc/contacts" }
+  ]
 }

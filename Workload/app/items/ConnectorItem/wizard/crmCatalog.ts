@@ -6,6 +6,10 @@
  *
  * Extracted from WizardEntityStep so it can be shared by both the legacy
  * WizardEntityStep (backward compat) and the new ConnectorConfigPanel.
+ *
+ * Entity grouping:
+ *   - Customer Insight Journey (CIJ): contact, msdynmkt_email, msdynmkt_journey
+ *   - Sales CRM: lead, opportunity, account, quote, salesorder, invoice
  */
 import { CrmEntityConfiguration } from "../ConnectorItemDefinition";
 
@@ -24,6 +28,7 @@ export interface CrmCatalogEntry {
 }
 
 export const CRM_CATALOG: CrmCatalogEntry[] = [
+  // ── Customer Insight Journey entities ──────────────────────────
   {
     key: "contact",
     logicalName: "contact",
@@ -58,6 +63,96 @@ export const CRM_CATALOG: CrmCatalogEntry[] = [
       "msdynmkt_journeyid", "msdynmkt_name",
       "msdynmkt_journeytype", "msdynmkt_start", "msdynmkt_end",
       "statecode", "statuscode", "createdon", "modifiedon",
+    ],
+  },
+
+  // ── Sales CRM entities ──────────────────────────────────────────
+  {
+    key: "lead",
+    logicalName: "lead",
+    label: "Lead",
+    displayName: "Lead",
+    extractionMode: "incremental",
+    selectColumns: [
+      "leadid", "fullname", "firstname", "lastname",
+      "emailaddress1", "telephone1", "mobilephone",
+      "jobtitle", "companyname", "subject",
+      "leadsourcecode", "industrycode",
+      "statecode", "statuscode",
+      "estimatedamount", "estimatedclosedate",
+      "ownerid", "createdon", "modifiedon",
+    ],
+  },
+  {
+    key: "opportunity",
+    logicalName: "opportunity",
+    label: "Opportunity",
+    displayName: "Opportunity",
+    extractionMode: "incremental",
+    selectColumns: [
+      "opportunityid", "name", "description",
+      "estimatedvalue", "estimatedclosedate", "actualvalue", "actualclosedate",
+      "closeprobability", "salesstage", "stepname",
+      "statecode", "statuscode",
+      "customerid", "ownerid", "parentaccountid",
+      "createdon", "modifiedon",
+    ],
+  },
+  {
+    key: "account",
+    logicalName: "account",
+    label: "Account",
+    displayName: "Account",
+    extractionMode: "incremental",
+    selectColumns: [
+      "accountid", "name", "accountnumber",
+      "emailaddress1", "telephone1", "websiteurl",
+      "address1_city", "address1_country", "address1_postalcode",
+      "industrycode", "numberofemployees", "revenue",
+      "statecode", "statuscode",
+      "ownerid", "createdon", "modifiedon",
+    ],
+  },
+  {
+    key: "quote",
+    logicalName: "quote",
+    label: "Quote",
+    displayName: "Quote",
+    extractionMode: "incremental",
+    selectColumns: [
+      "quoteid", "name", "quotenumber",
+      "totallineitemamount", "totaltax", "totalamount", "discountamount",
+      "effectivefrom", "effectiveto", "statecode", "statuscode",
+      "customerid", "ownerid", "opportunityid",
+      "createdon", "modifiedon",
+    ],
+  },
+  {
+    key: "salesorder",
+    logicalName: "salesorder",
+    label: "Sales Order",
+    displayName: "Sales Order",
+    extractionMode: "incremental",
+    selectColumns: [
+      "salesorderid", "name", "ordernumber",
+      "totallineitemamount", "totaltax", "totalamount", "discountamount",
+      "datefulfilled", "statecode", "statuscode",
+      "customerid", "ownerid", "quoteid",
+      "createdon", "modifiedon",
+    ],
+  },
+  {
+    key: "invoice",
+    logicalName: "invoice",
+    label: "Invoice",
+    displayName: "Invoice",
+    extractionMode: "incremental",
+    selectColumns: [
+      "invoiceid", "name", "invoicenumber",
+      "totallineitemamount", "totaltax", "totalamount", "discountamount",
+      "duedate", "statecode", "statuscode",
+      "customerid", "ownerid", "salesorderid",
+      "createdon", "modifiedon",
     ],
   },
 ];

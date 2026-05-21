@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Stack } from '@fluentui/react';
 import {
   Button,
   Field,
@@ -55,9 +54,9 @@ export function PlaygroundSharedStatePage(props: PageProps) {
   }
 
   return (
-    <Stack className="shared-state-dialog">
+    <div className="shared-state-dialog">
       
-      <Stack  className="section">
+      <div className="section">
         <Field 
           label="New Shared State Message:"
           orientation="vertical"
@@ -72,11 +71,7 @@ export function PlaygroundSharedStatePage(props: PageProps) {
           />
         </Field>
 
-        <Stack 
-          horizontal 
-          tokens={{ childrenGap: 10 }}
-          className="shared-state-buttons"
-        >
+        <div className="shared-state-buttons">
           <Button 
             appearance="primary"
             icon={<Save24Regular />}
@@ -92,9 +87,9 @@ export function PlaygroundSharedStatePage(props: PageProps) {
           >
             Cancel
           </Button>
-        </Stack>
-      </Stack >
-    </Stack>
+        </div>
+      </div>
+    </div>
   );
 }
 

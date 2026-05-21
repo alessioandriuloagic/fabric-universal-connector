@@ -11,7 +11,12 @@ param (
     [String]$WorkloadVersion = "1.0.0",
     # Environment that should be build
     [ValidateSet("dev", "test", "prod")]
-    [String]$Environment = "prod"
+    [String]$Environment = "prod",
+    # Optional: scope the build to a specific workload frontend.
+    # When omitted the default "universal" build is used (REACT_APP_WORKLOAD_ID not set).
+    # Valid values mirror the REACT_APP_WORKLOAD_ID env variable.
+    [ValidateSet("", "customer-insight-journey", "business-central", "sales-crm", "sql-db")]
+    [String]$Workload = ""
 )
 
 # Define key-value dictionary for replacements
@@ -66,7 +71,18 @@ Write-Host "Building the app release ..."
 $workloadDir = Join-Path $PSScriptRoot "..\..\Workload"
 Push-Location $workloadDir
 try {
-    npm run build:$Environment
+    # Determine the npm build script based on the -Workload parameter.
+    # When -Workload is specified, use the scoped build script; otherwise fall
+    # back to the standard build:$Environment (universal build).
+    if ($Workload -ne "") {
+        $npmScript = "build:${Workload}:${Environment}"
+        Write-Host "Building scoped workload frontend: $npmScript"
+    } else {
+        $npmScript = "build:$Environment"
+        Write-Host "Building universal frontend: $npmScript"
+    }
+
+    npm run $npmScript
     if (!(Test-Path $releaseAppDir)) {
         New-Item -ItemType Directory -Path $releaseAppDir | Out-Null
     }

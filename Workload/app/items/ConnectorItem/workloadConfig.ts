@@ -45,6 +45,38 @@ const CONFIGS: Record<string, WorkloadConfig> = {
     ],
     skipConnectorStep: true,
   },
+  "sales-crm": {
+    workloadId: "sales-crm",
+    isScoped: true,
+    lockedConnectorType: "crm",
+    lockedEntityKeys: ["lead", "opportunity", "account", "contact", "quote", "salesorder", "invoice"],
+    lockedEntityLabels: [
+      "Lead",
+      "Opportunity",
+      "Account",
+      "Contact",
+      "Quote",
+      "Sales Order",
+      "Invoice",
+    ],
+    skipConnectorStep: true,
+  },
+  "business-central": {
+    workloadId: "business-central",
+    isScoped: true,
+    lockedConnectorType: "businesscentral",
+    lockedEntityKeys: [],
+    lockedEntityLabels: [],
+    skipConnectorStep: true,
+  },
+  "sql-db": {
+    workloadId: "sql-db",
+    isScoped: true,
+    lockedConnectorType: "sql",
+    lockedEntityKeys: [],
+    lockedEntityLabels: [],
+    skipConnectorStep: true,
+  },
 };
 
 const WORKLOAD_ID: string =

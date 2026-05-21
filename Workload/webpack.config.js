@@ -58,7 +58,9 @@ module.exports = {
         extensions: [".*", ".js", ".jsx", ".tsx", ".ts"],
         fullySpecified: false,
         alias: {
-            'process/browser': require.resolve('process/browser.js')
+            'process/browser': require.resolve('process/browser.js'),
+            // Resolve workspace-relative shared/ imports (shared/components, shared/hooks, etc.)
+            'shared': path.resolve(__dirname, '../shared'),
         }
     },
     module: {

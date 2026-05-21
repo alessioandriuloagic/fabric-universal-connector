@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Stack } from '@fluentui/react';
 import {
   Button,
   Radio,
@@ -28,12 +27,12 @@ export function PlaygroundPanel(props: TabContentProps) {
   }
 
   return (
-    <Stack className="panel">
+    <div className="panel">
       <Divider alignContent="start">Panel Example</Divider>
       
       {/* Button Section */}
       <div className="section">
-        <Stack tokens={{ childrenGap: 10 }}>
+        <div>
           <Button 
             icon={<Lightbulb24Regular />} 
             appearance="primary"
@@ -52,7 +51,7 @@ export function PlaygroundPanel(props: TabContentProps) {
           >
             Button 3
           </Button>
-        </Stack>
+          </div>
       </div>
 
       {/* Radio Group Section */}
@@ -79,7 +78,7 @@ export function PlaygroundPanel(props: TabContentProps) {
           Close Panel
         </Button>
       </div>
-    </Stack>
+    </div>
   );
 }
 

@@ -11,8 +11,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Dict, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Optional
 
 from app.models.job_models import JobRecord, JobStatus
 
@@ -128,6 +128,46 @@ async def cancel(job_instance_id: str) -> bool:
     return True
 
 
+async def list_recent(hours: int = 24) -> List[JobRecord]:
+    """
+    Return jobs that started or finished within the last `hours` hours.
+
+    Used by the /health/detailed endpoint to compute per-status counts.
+    Results are sorted by started_at ascending (oldest first).
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+
+    if _USE_TABLE_STORAGE:
+        return await _table_list_recent(cutoff)
+
+    async with _lock:
+        result = [
+            r for r in _store.values()
+            if _record_is_recent(r, cutoff)
+        ]
+    result.sort(key=lambda r: r.started_at or r.finished_at or "")
+    return result
+
+
+async def count_by_status(hours: int = 24) -> Dict[str, int]:
+    """
+    Return a mapping of JobStatus → count for jobs in the last `hours` hours.
+
+    All statuses are included in the result (with 0 count when no jobs exist).
+    """
+    counts: Dict[str, int] = {s.value: 0 for s in JobStatus}
+    records = await list_recent(hours)
+    for r in records:
+        counts[r.status.value] = counts.get(r.status.value, 0) + 1
+    return counts
+
+
+def _record_is_recent(record: JobRecord, cutoff_iso: str) -> bool:
+    """True when the record's most recent activity timestamp is >= cutoff."""
+    ts = record.finished_at or record.started_at
+    return ts is not None and ts >= cutoff_iso
+
+
 # ── Azure Table Storage backend (Phase 2) ─────────────────────────────────────
 
 async def _table_upsert(job_instance_id: str, record: JobRecord) -> None:
@@ -165,3 +205,66 @@ async def _table_get(job_instance_id: str) -> Optional[JobRecord]:
             return JobRecord(**data)
     except Exception:
         return None
+
+
+async def _table_list_recent(cutoff_iso: str) -> List[JobRecord]:
+    """
+    Query Azure Table Storage for jobs with a started_at or finished_at
+    timestamp >= cutoff_iso.
+
+    Uses an OData filter so only matching rows are transferred.
+    Falls back to an empty list on any error to keep /health/detailed resilient.
+    """
+    try:
+        from azure.data.tables.aio import TableServiceClient  # type: ignore
+
+        # OData filter: rows where either time field meets the cutoff.
+        # Azure Tables OData doesn't support OR across string comparisons
+        # easily, so we filter by started_at only and supplement in memory.
+        query_filter = f"PartitionKey eq 'jobs' and started_at ge '{cutoff_iso}'"
+
+        results: List[JobRecord] = []
+        async with TableServiceClient.from_connection_string(
+            _AZURE_STORAGE_CONNECTION_STRING
+        ) as svc:
+            table = svc.get_table_client(_TABLE_NAME)
+            async for entity in table.query_entities(query_filter):
+                data = dict(entity)
+                data.pop("PartitionKey", None)
+                data.pop("RowKey", None)
+                data.pop("odata.etag", None)
+                data.pop("Timestamp", None)
+                try:
+                    results.append(JobRecord(**data))
+                except Exception as parse_exc:
+                    log.warning("Failed to parse Table Storage entity: %s", parse_exc)
+
+        # Include jobs that finished recently but started before cutoff
+        # (e.g. a long-running job started 25h ago but finished 1h ago).
+        completed_filter = (
+            f"PartitionKey eq 'jobs' and finished_at ge '{cutoff_iso}'"
+        )
+        seen_ids = {r.job_instance_id for r in results}
+        async with TableServiceClient.from_connection_string(
+            _AZURE_STORAGE_CONNECTION_STRING
+        ) as svc:
+            table = svc.get_table_client(_TABLE_NAME)
+            async for entity in table.query_entities(completed_filter):
+                data = dict(entity)
+                row_key = data.get("RowKey", "")
+                if row_key in seen_ids:
+                    continue
+                data.pop("PartitionKey", None)
+                data.pop("RowKey", None)
+                data.pop("odata.etag", None)
+                data.pop("Timestamp", None)
+                try:
+                    results.append(JobRecord(**data))
+                except Exception as parse_exc:
+                    log.warning("Failed to parse Table Storage entity: %s", parse_exc)
+
+        return results
+
+    except Exception as exc:
+        log.error("_table_list_recent failed: %s", exc)
+        return []

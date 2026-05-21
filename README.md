@@ -8,7 +8,61 @@
 
 ---
 
-## Overview
+## Repository Structure
+
+This repository is organized as a **monorepo** containing four focused workloads that share a single backend deployment.
+
+```
+/
+├── workloads/                            # One subfolder per published Fabric workload
+│   ├── customer-insight-journey/         # MVP — Dynamics 365 CRM customer journey data
+│   ├── sales-crm/                        # CRM sales entities (leads, opportunities, accounts)
+│   ├── business-central/                 # Business Central OData v4 entities
+│   └── sql-db/                           # User-defined SQL Server / Azure SQL tables
+│
+├── backend/                              # Shared FastAPI backend — single Azure deployment
+│   └── app/
+│       ├── api/jobs.py                   # Job orchestration (IJobsController)
+│       ├── api/workloads.py              # X-Workload-Id header validation
+│       ├── connectors/                   # CRM / BC / SQL connector modules
+│       └── workload_config/              # Per-workload entity scoping
+│
+├── Workload/                             # React/TypeScript frontend (all workloads share this bundle)
+│   └── app/items/ConnectorItem/          # Multi-workload aware item editor
+│
+├── shared/                               # Shared TypeScript components and utilities
+│   ├── components/                       # Shared Fluent UI components
+│   ├── hooks/                            # Shared React hooks
+│   ├── types/                            # Shared TypeScript types (WorkloadId, etc.)
+│   └── utils/                            # apiClient.ts — X-Workload-Id header injection
+│
+├── connector/runtime/                    # agic-fabric-connector Python wheel (Spark runtime)
+├── scripts/                              # PowerShell build, deploy, and setup scripts
+└── docs/                                 # Documentation
+    ├── architecture/multi-workload-routing.md
+    └── deploy/per-workload-guide.md
+```
+
+### Quick Start — Single Workload Development
+
+```powershell
+# Install frontend dependencies (once)
+cd Workload ; npm install
+
+# Start dev server for a specific workload
+npm run start:customer-insight-journey   # CRM — Customer Insight Journey
+npm run start:sales-crm                  # CRM — Sales
+npm run start:business-central           # Business Central
+npm run start:sql-db                     # SQL DB
+
+# Start the shared backend
+cd ..\backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+See [docs/deploy/per-workload-guide.md](docs/deploy/per-workload-guide.md) for full build and deployment instructions.
+
+---
 
 The **Fabric Universal Connector** is an enterprise-grade Microsoft Fabric workload that brings multi-source data ingestion natively into the Fabric experience. It eliminates the need for custom pipelines, external ETL tools, or bespoke notebooks by providing a unified, configuration-driven connector that runs directly in your Fabric workspace.
 

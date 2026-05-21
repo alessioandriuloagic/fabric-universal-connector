@@ -93,18 +93,133 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://api.fabric.microsoft.com"],
+    allow_origins=[
+        # Fabric platform
+        "https://api.fabric.microsoft.com",
+        "https://app.fabric.microsoft.com",
+        # ISV frontend deployments — one subdomain per scoped workload
+        "https://connector.agic.technology",
+        "https://cij.connector.agic.technology",
+        "https://sales.connector.agic.technology",
+        "https://bc.connector.agic.technology",
+        "https://sql.connector.agic.technology",
+        # Additional origins from environment (comma-separated)
+        *[
+            o.strip()
+            for o in os.getenv("CORS_EXTRA_ORIGINS", "").split(",")
+            if o.strip()
+        ],
+    ],
     allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Workload-Id"],
 )
 
 app.include_router(jobs_router)
 
 
+# ── X-Workload-Id middleware ───────────────────────────────────────────────────
+
+# Paths exempt from X-Workload-Id validation:
+#   /health*   — monitoring probes (no workload context)
+#   /workload* — Fabric Scheduler calls these directly (no custom header allowed)
+#   /docs / /openapi.json — Swagger UI (only enabled in dev via ENABLE_SWAGGER)
+_WORKLOAD_HEADER_EXEMPT_PREFIXES = (
+    "/health",
+    "/workload",
+    "/docs",
+    "/openapi.json",
+    "/redoc",
+)
+
+
+@app.middleware("http")
+async def validate_workload_id_header(request: Request, call_next):
+    """
+    Enforce presence of the X-Workload-Id header on all non-exempt endpoints.
+
+    WDK endpoints (/workload/*) are exempt because the Fabric Scheduler calls
+    them directly and cannot inject custom headers.  All other endpoints
+    (e.g. /v1/workloads/config) require the header so the backend knows which
+    workload is making the request.
+
+    Missing header behaviour:
+      - Exempt paths: pass through silently.
+      - Non-exempt paths: return HTTP 400 + log WARNING.
+    """
+    path = request.url.path
+    if any(path == prefix or path.startswith(prefix + "/") or path.startswith(prefix + "?")
+           for prefix in _WORKLOAD_HEADER_EXEMPT_PREFIXES):
+        return await call_next(request)
+
+    workload_id = request.headers.get("X-Workload-Id")
+    if not workload_id:
+        log.warning(
+            "Missing X-Workload-Id header",
+            extra={"path": path, "method": request.method},
+        )
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": "Missing required header: X-Workload-Id"},
+        )
+
+    return await call_next(request)
+
+
+# ── Health endpoints ───────────────────────────────────────────────────────────
+
 @app.get("/health", tags=["system"])
 async def health_check() -> dict:
-    """Health probe endpoint for load balancers and container orchestrators."""
+    """Lightweight health probe for load balancers and container orchestrators."""
     return {"status": "ok", "version": app.version}
+
+
+@app.get("/health/detailed", tags=["system"])
+async def health_detailed() -> dict:
+    """
+    Detailed health report including job statistics and configuration status.
+
+    Returns:
+      - status: "ok" or "degraded"
+      - version: backend app version
+      - job_tracker_backend: "in_memory" | "azure_table_storage"
+      - jobs_last_24h: per-status job counts for the last 24 hours
+      - onelake_configured: whether the OneLake account URL env var is set
+      - registered_workloads: list of known workload IDs
+      - cors_origins_count: number of allowed CORS origins
+    """
+    from app.services import job_tracker as _tracker
+    from app.api.workloads import WorkloadId
+
+    # Job counts (never raises — falls back to zeros on error)
+    try:
+        job_counts = await _tracker.count_by_status(hours=24)
+    except Exception as exc:
+        log.error("health/detailed: count_by_status failed: %s", exc)
+        from app.models.job_models import JobStatus
+        job_counts = {s.value: 0 for s in JobStatus}
+
+    # OneLake connectivity — check environment configuration only (no network call)
+    onelake_account_url = os.getenv("ONELAKE_ACCOUNT_URL", "")
+    onelake_configured = bool(onelake_account_url)
+
+    # Workload config versions
+    registered_workloads = [
+        w.value for w in WorkloadId if w != WorkloadId.UNIVERSAL
+    ]
+
+    # Job tracker backend
+    use_table_storage = os.getenv("USE_TABLE_STORAGE", "false").lower() == "true"
+
+    return {
+        "status": "ok",
+        "version": app.version,
+        "job_tracker_backend": (
+            "azure_table_storage" if use_table_storage else "in_memory"
+        ),
+        "jobs_last_24h": job_counts,
+        "onelake_configured": onelake_configured,
+        "registered_workloads": registered_workloads,
+    }
 
 
 @app.exception_handler(Exception)

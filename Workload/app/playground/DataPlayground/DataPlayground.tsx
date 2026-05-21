@@ -5,7 +5,6 @@ import {
   SelectTabData,
   TabValue,
 } from '@fluentui/react-components';
-import { Stack } from '@fluentui/react';
 import { OneLakeItemExplorerComponent } from '../../samples/views/SampleOneLakeItemExplorer/SampleOneLakeItemExplorer';
 import { OneLakeShortcutCreator } from '../../samples/views/SampleOneLakeShortcutCreator/SampleOneLakeShortcutCreator';
 import "../Playground.scss";
@@ -18,7 +17,7 @@ export function DataPlayground(props: TabContentProps) {
   const [selectedTab, setSelectedTab] = useState<TabValue>("OneLakeView");
 
   return (
-    <Stack className="playground-container" >
+    <div className="playground-container">
       <TabList
         className="tabListContainer"
         defaultSelectedValue={selectedTab}
@@ -30,7 +29,7 @@ export function DataPlayground(props: TabContentProps) {
         <Tab value="eventhouseExplorer">Eventhouse Explorer</Tab>
       </TabList>
 
-      <Stack className="main">
+      <div className="main">
         {selectedTab === 'OneLakeView' && (
           <OneLakeItemExplorerComponent 
             workloadClient={workloadClient}
@@ -63,8 +62,8 @@ export function DataPlayground(props: TabContentProps) {
         {selectedTab === 'eventhouseExplorer' && (
           <EventhouseExplorerComponent workloadClient={workloadClient} />
         )}
-      </Stack>
-    </Stack>
+      </div>
+    </div>
 
   );
 };

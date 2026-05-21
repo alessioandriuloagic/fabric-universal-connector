@@ -7,7 +7,6 @@ import {
   TabValue,
   Button,
 } from '@fluentui/react-components';
-import { Stack } from '@fluentui/react';
 import { RootState } from "../ClientSDKPlayground/Store/Store"
 import { setSelectedTab } from "../ClientSDKPlayground/Store/tabsSlice";
 import { ApiNotification } from './ApiNotification';
@@ -41,7 +40,7 @@ export function ClientSDKPlayground(props: TabContentProps) {
 
 
   return (
-    <Stack className="playground-container" >
+    <div className="playground-container">
       <TabList
         className="tabListContainer"
         selectedValue={selectedApiTab}
@@ -59,7 +58,7 @@ export function ClientSDKPlayground(props: TabContentProps) {
         <Tab value="authenticationFrontend">Frontend Authentication</Tab>
       </TabList>
 
-      <Stack className="main">
+      <div className="main">
         {selectedApiTab === 'apiNotification' && (
           <ApiNotification workloadClient={workloadClient} />
         )}
@@ -96,15 +95,15 @@ export function ClientSDKPlayground(props: TabContentProps) {
         {selectedApiTab === 'authenticationFrontend' && (
           <ApiAuthenticationFrontend workloadClient={workloadClient} />
         )}
-      </Stack>
-    </Stack>
+      </div>
+    </div>
   );
 };
 
 export function SamplePage({ workloadClient, history }: PageProps) {
   return (
-    <Stack className="playground-container">
-      <Stack className="main">
+    <div className="playground-container">
+      <div className="main">
         <Button
           onClick={() => {
             callNavigationNavigate(workloadClient, "workload", "/playground-client-sdk/");
@@ -112,7 +111,7 @@ export function SamplePage({ workloadClient, history }: PageProps) {
         >
           Navigate Back
         </Button>
-      </Stack>
-    </Stack>
+      </div>
+    </div>
   );
 }

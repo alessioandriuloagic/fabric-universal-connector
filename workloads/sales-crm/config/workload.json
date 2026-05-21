@@ -4,5 +4,13 @@
   "source": "crm",
   "frontendUrl": "https://sales.connector.agic.technology",
   "wizardSteps": ["auth", "config", "schedule", "storage", "review"],
-  "entities": []
+  "entities": [
+    { "logicalName": "lead",        "displayName": "Lead",        "bronzeTable": "bronze_crm/lead" },
+    { "logicalName": "opportunity", "displayName": "Opportunity", "bronzeTable": "bronze_crm/opportunity" },
+    { "logicalName": "account",     "displayName": "Account",     "bronzeTable": "bronze_crm/account" },
+    { "logicalName": "contact",     "displayName": "Contact",     "bronzeTable": "bronze_crm/contact" },
+    { "logicalName": "quote",       "displayName": "Quote",       "bronzeTable": "bronze_crm/quote" },
+    { "logicalName": "salesorder",  "displayName": "Sales Order", "bronzeTable": "bronze_crm/salesorder" },
+    { "logicalName": "invoice",     "displayName": "Invoice",     "bronzeTable": "bronze_crm/invoice" }
+  ]
 }
