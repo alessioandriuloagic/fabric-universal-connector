@@ -5,14 +5,15 @@ import { EntityWatermark } from "../ConnectorItemDefinition";
 import "../ConnectorItem.scss";
 
 interface EntityStatusListProps {
+  configuredEntities: { name: string; displayName: string }[];
   watermarks: EntityWatermark[];
   onEntityClick: (entityName: string) => void;
 }
 
-export function EntityStatusList({ watermarks, onEntityClick }: EntityStatusListProps) {
+export function EntityStatusList({ configuredEntities, watermarks, onEntityClick }: EntityStatusListProps) {
   const { t } = useTranslation();
 
-  if (watermarks.length === 0) {
+  if (configuredEntities.length === 0) {
     return (
       <Text size={200} style={{ padding: 8 }}>
         {t("EntityList_Empty", "No entities configured.")}
@@ -22,20 +23,22 @@ export function EntityStatusList({ watermarks, onEntityClick }: EntityStatusList
 
   return (
     <div className="entity-status-list">
-      {watermarks.map((w) => (
-        <div
-          key={w.entityName}
-          className="entity-status-item"
-          onClick={() => onEntityClick(w.entityName)}
-        >
-          <Badge
-            color={w.isInitialLoadComplete ? "success" : "informative"}
-            appearance="filled"
-            size="small"
-          />
-          <Text size={300}>{w.entityName}</Text>
-        </div>
-      ))}
+      {configuredEntities.map((entity) => {
+        const watermark = watermarks.find((w) => w.entityName === entity.name);
+        const badgeColor = watermark
+          ? watermark.isInitialLoadComplete ? "success" : "informative"
+          : "subtle";
+        return (
+          <div
+            key={entity.name}
+            className="entity-status-item"
+            onClick={() => onEntityClick(entity.name)}
+          >
+            <Badge color={badgeColor} appearance="filled" size="small" />
+            <Text size={300}>{entity.displayName || entity.name}</Text>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -2,12 +2,14 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { Text, Spinner } from "@fluentui/react-components";
 import { ItemEditorDefaultView } from "../../../components/ItemEditor";
-import { ConnectorRun, EntityWatermark } from "../ConnectorItemDefinition";
+import { ConnectorRun, EntityWatermark, MultiConnectorItemDefinition } from "../ConnectorItemDefinition";
+import { ItemWithDefinition } from "../../../controller/ItemCRUDController";
 import { RunHistoryTable } from "./RunHistoryTable";
 import { EntityStatusList } from "./EntityStatusList";
 import "../ConnectorItem.scss";
 
 interface ConnectorDashboardProps {
+  item: ItemWithDefinition<MultiConnectorItemDefinition> | undefined;
   runs: ConnectorRun[];
   watermarks: EntityWatermark[];
   isLoading: boolean;
@@ -15,7 +17,35 @@ interface ConnectorDashboardProps {
   onEntityClick: (entityName: string) => void;
 }
 
+/** Extracts a flat list of { name, displayName } for all enabled entities across all enabled connectors. */
+function getConfiguredEntities(item: ItemWithDefinition<MultiConnectorItemDefinition> | undefined): { name: string; displayName: string }[] {
+  const connectors = item?.definition?.connectors ?? [];
+  const result: { name: string; displayName: string }[] = [];
+  for (const c of connectors) {
+    if (!c.enabled) continue;
+    switch (c.connectorType) {
+      case "crm":
+        for (const e of c.entities) {
+          if (e.enabled) result.push({ name: e.logicalName, displayName: e.displayName });
+        }
+        break;
+      case "businesscentral":
+        for (const e of c.entities) {
+          if (e.enabled) result.push({ name: e.apiEndpoint, displayName: e.displayName });
+        }
+        break;
+      case "sql":
+        for (const e of c.entities) {
+          if (e.enabled) result.push({ name: e.tableName, displayName: e.displayName });
+        }
+        break;
+    }
+  }
+  return result;
+}
+
 export function ConnectorDashboard({
+  item,
   runs,
   watermarks,
   isLoading,
@@ -24,6 +54,7 @@ export function ConnectorDashboard({
 }: ConnectorDashboardProps) {
   const { t } = useTranslation();
   const lastRun = runs[0] ?? null;
+  const configuredEntities = getConfiguredEntities(item);
 
   return (
     <ItemEditorDefaultView
@@ -33,6 +64,7 @@ export function ConnectorDashboard({
         collapsible: true,
         content: (
           <EntityStatusList
+            configuredEntities={configuredEntities}
             watermarks={watermarks}
             onEntityClick={onEntityClick}
           />

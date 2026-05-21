@@ -256,10 +256,11 @@ const WizardViewWrapper: React.FC = () => {
 };
 
 const DashboardViewWrapper: React.FC = () => {
-  const { runs, watermarks, isLoading, setSelectedRunId, setSelectedEntityName } = useConnectorEditorCtx();
+  const { item, runs, watermarks, isLoading, setSelectedRunId, setSelectedEntityName } = useConnectorEditorCtx();
   const { setCurrentView } = useViewNavigation();
   return (
     <ConnectorDashboard
+      item={item}
       runs={runs}
       watermarks={watermarks}
       isLoading={isLoading}
@@ -281,8 +282,23 @@ const RunDetailViewWrapper: React.FC = () => {
 };
 
 const EntityDetailViewWrapper: React.FC = () => {
-  const { watermarks, selectedEntityName } = useConnectorEditorCtx();
-  return <EntityDetailView watermarks={watermarks} entityName={selectedEntityName} />;
+  const { item, watermarks, selectedEntityName } = useConnectorEditorCtx();
+  const configuredEntities: { name: string; displayName: string }[] = [];
+  for (const c of item?.definition?.connectors ?? []) {
+    if (!c.enabled) continue;
+    switch (c.connectorType) {
+      case "crm":
+        for (const e of c.entities) if (e.enabled) configuredEntities.push({ name: e.logicalName, displayName: e.displayName });
+        break;
+      case "businesscentral":
+        for (const e of c.entities) if (e.enabled) configuredEntities.push({ name: e.apiEndpoint, displayName: e.displayName });
+        break;
+      case "sql":
+        for (const e of c.entities) if (e.enabled) configuredEntities.push({ name: e.tableName, displayName: e.displayName });
+        break;
+    }
+  }
+  return <EntityDetailView configuredEntities={configuredEntities} watermarks={watermarks} entityName={selectedEntityName} />;
 };
 
 // ── Static view definitions ────────────────────────────────────────────────────
