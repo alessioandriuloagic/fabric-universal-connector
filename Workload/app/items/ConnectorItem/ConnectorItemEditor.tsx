@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button, MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-components";
+import { WorkloadClientAPI } from "@ms-fabric/workload-client";
 import { PageProps, ContextProps } from "../../App";
 import {
   ItemWithDefinition,
@@ -13,6 +14,7 @@ import {
   ItemEditor,
   useViewNavigation,
   RegisteredNotification,
+  RegisteredView,
 } from "../../components/ItemEditor";
 import { JobSchedulerClient } from "../../clients/JobSchedulerClient";
 import {
@@ -39,7 +41,7 @@ import {
   WIZARD_STEP_ORDER,
   WizardStep,
 } from "./wizard/wizardState";
-import { WORKLOAD_CONFIG, buildWorkloadInitialState } from "./workloadConfig";
+import { WORKLOAD_CONFIG, buildWorkloadInitialState, buildWizardStateFromDefinition } from "./workloadConfig";
 import "./ConnectorItem.scss";
 
 export const VIEWS = {
@@ -88,16 +90,246 @@ class ConnectorErrorBoundary extends React.Component<
   }
 }
 
+// ── Shared editor context ──────────────────────────────────────────────────────
+// Placing view components and the context at module level (outside ConnectorItemEditor)
+// ensures their function references are stable across re-renders, preventing React
+// from unmounting/remounting them on every state update (which caused focus loss in
+// text inputs and configuration resets).
+
+interface ConnectorEditorCtxValue {
+  workloadClient: WorkloadClientAPI;
+  item: ItemWithDefinition<MultiConnectorItemDefinition> | undefined;
+  setItem: React.Dispatch<React.SetStateAction<ItemWithDefinition<MultiConnectorItemDefinition> | undefined>>;
+  wizardState: WizardState;
+  updateWizard: (patch: Partial<WizardState>) => void;
+  setWizardState: React.Dispatch<React.SetStateAction<WizardState>>;
+  isLoading: boolean;
+  runs: ConnectorRun[];
+  watermarks: EntityWatermark[];
+  selectedRunId: string | null;
+  setSelectedRunId: React.Dispatch<React.SetStateAction<string | null>>;
+  selectedEntityName: string | null;
+  setSelectedEntityName: React.Dispatch<React.SetStateAction<string | null>>;
+  handleActivate: () => Promise<void>;
+}
+
+const ConnectorEditorCtx = React.createContext<ConnectorEditorCtxValue | null>(null);
+
+function useConnectorEditorCtx(): ConnectorEditorCtxValue {
+  const ctx = React.useContext(ConnectorEditorCtx);
+  if (!ctx) throw new Error("ConnectorEditorCtx not provided");
+  return ctx;
+}
+
+// ── Module-level view wrappers (stable component types) ───────────────────────
+
+const EmptyViewWrapper: React.FC = () => {
+  const { workloadClient, item, setWizardState } = useConnectorEditorCtx();
+  const { setCurrentView } = useViewNavigation();
+  return (
+    <ConnectorItemEmptyView
+      workloadClient={workloadClient}
+      item={item}
+      onConfigure={() => {
+        setWizardState(buildWorkloadInitialState());
+        setCurrentView(VIEWS.WIZARD);
+      }}
+    />
+  );
+};
+
+const WizardViewWrapper: React.FC = () => {
+  const { wizardState, updateWizard, handleActivate } = useConnectorEditorCtx();
+  const { setCurrentView } = useViewNavigation();
+  const { t } = useTranslation();
+
+  const effectiveStepOrder: WizardStep[] = WORKLOAD_CONFIG.skipConnectorStep
+    ? [WIZARD_STEPS.CONFIG, WIZARD_STEPS.STORAGE, WIZARD_STEPS.SCHEDULE, WIZARD_STEPS.REVIEW]
+    : WIZARD_STEP_ORDER;
+
+  const localNext = (step: WizardStep): WizardStep | null => {
+    const idx = effectiveStepOrder.indexOf(step);
+    return idx < effectiveStepOrder.length - 1 ? effectiveStepOrder[idx + 1] : null;
+  };
+  const localPrev = (step: WizardStep): WizardStep | null => {
+    const idx = effectiveStepOrder.indexOf(step);
+    return idx > 0 ? effectiveStepOrder[idx - 1] : null;
+  };
+
+  const isFirstStep = wizardState.step === effectiveStepOrder[0];
+  const isReviewStep = wizardState.step === WIZARD_STEPS.REVIEW;
+
+  const commonProps = {
+    wizardState,
+    onUpdate: updateWizard,
+    validationErrors: wizardState.validationErrors,
+  };
+
+  const handleNext = () => {
+    const { isValid, errors } = validateStep(wizardState, wizardState.step);
+    if (!isValid) {
+      updateWizard({ validationErrors: errors });
+      return;
+    }
+    updateWizard({ validationErrors: {} });
+    const next = localNext(wizardState.step);
+    if (next) {
+      if (wizardState.step === WIZARD_STEPS.CONFIG) {
+        updateWizard({
+          step: next,
+          connectors: recomputeConnectorStatuses(wizardState.connectors),
+        });
+      } else {
+        updateWizard({ step: next });
+      }
+    }
+  };
+
+  const handlePrev = () => {
+    const prev = localPrev(wizardState.step);
+    if (prev) {
+      updateWizard({ step: prev });
+    } else {
+      setCurrentView(VIEWS.EMPTY);
+    }
+  };
+
+  const handleActivateAndNavigate = async () => {
+    await handleActivate();
+    setCurrentView(VIEWS.DASHBOARD);
+  };
+
+  const stepIndex = effectiveStepOrder.indexOf(wizardState.step);
+  const totalSteps = effectiveStepOrder.length;
+  const hasEnabledConnector = wizardState.connectors.some((c) => c.enabled);
+
+  const renderStep = () => {
+    switch (wizardState.step) {
+      case WIZARD_STEPS.CONNECTORS: return <WizardConnectorStep {...commonProps} />;
+      case WIZARD_STEPS.CONFIG:     return <WizardConfigStep    {...commonProps} />;
+      case WIZARD_STEPS.STORAGE:    return <WizardStorageStep   {...commonProps} />;
+      case WIZARD_STEPS.SCHEDULE:   return <WizardScheduleStep  {...commonProps} />;
+      case WIZARD_STEPS.REVIEW:     return (
+        <WizardReviewStep {...commonProps} onActivate={handleActivateAndNavigate} />
+      );
+      default: return null;
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+      <div style={{ padding: "8px 24px", color: "var(--colorNeutralForeground3)", fontSize: 12 }}>
+        {t("Wizard_StepCounter", "Step {{current}} of {{total}}", {
+          current: stepIndex + 1,
+          total: totalSteps,
+        })}
+      </div>
+      <div style={{ flex: 1 }}>
+        {renderStep()}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          padding: "16px 24px",
+          borderTop: "1px solid var(--colorNeutralStroke1)",
+          marginTop: 16,
+        }}
+      >
+        <Button appearance="secondary" onClick={handlePrev}>
+          {isFirstStep
+            ? t("Wizard_Nav_Cancel", "Cancel")
+            : t("Wizard_Nav_Previous", "Previous")}
+        </Button>
+        {!isReviewStep && (
+          <Button
+            appearance="primary"
+            onClick={handleNext}
+            disabled={isFirstStep && !hasEnabledConnector}
+          >
+            {t("Wizard_Nav_Next", "Next")}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const DashboardViewWrapper: React.FC = () => {
+  const { runs, watermarks, isLoading, setSelectedRunId, setSelectedEntityName } = useConnectorEditorCtx();
+  const { setCurrentView } = useViewNavigation();
+  return (
+    <ConnectorDashboard
+      runs={runs}
+      watermarks={watermarks}
+      isLoading={isLoading}
+      onRunClick={(runId) => {
+        setSelectedRunId(runId);
+        setCurrentView(VIEWS.RUN_DETAIL);
+      }}
+      onEntityClick={(entityName) => {
+        setSelectedEntityName(entityName);
+        setCurrentView(VIEWS.ENTITY_DETAIL);
+      }}
+    />
+  );
+};
+
+const RunDetailViewWrapper: React.FC = () => {
+  const { runs, selectedRunId } = useConnectorEditorCtx();
+  return <RunDetailView runs={runs} runId={selectedRunId} />;
+};
+
+const EntityDetailViewWrapper: React.FC = () => {
+  const { watermarks, selectedEntityName } = useConnectorEditorCtx();
+  return <EntityDetailView watermarks={watermarks} entityName={selectedEntityName} />;
+};
+
+// ── Static view definitions ────────────────────────────────────────────────────
+// Defined at module level so component types are stable and React never
+// unmounts/remounts them during normal state updates.
+
+const STATIC_VIEWS: RegisteredView[] = [
+  { name: VIEWS.EMPTY, component: <EmptyViewWrapper /> },
+  {
+    name: VIEWS.WIZARD,
+    component: (
+      <ConnectorErrorBoundary label="wizard">
+        <WizardViewWrapper />
+      </ConnectorErrorBoundary>
+    ),
+  },
+  {
+    name: VIEWS.DASHBOARD,
+    component: (
+      <ConnectorErrorBoundary label="dashboard">
+        <DashboardViewWrapper />
+      </ConnectorErrorBoundary>
+    ),
+  },
+  {
+    name: VIEWS.RUN_DETAIL,
+    component: <RunDetailViewWrapper />,
+    isDetailView: true,
+  },
+  {
+    name: VIEWS.ENTITY_DETAIL,
+    component: <EntityDetailViewWrapper />,
+    isDetailView: true,
+  },
+];
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
 export function ConnectorItemEditor({ workloadClient }: PageProps) {
   const pageContext = useParams<ContextProps>();
   const { pathname } = useLocation();
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(true);
-  // Item state is typed as MultiConnectorItemDefinition (v2).
-  // v1 payloads are normalised at load time via normalizeToV2.
   const [item, setItem] = useState<ItemWithDefinition<MultiConnectorItemDefinition>>();
-  const [viewSetter, setViewSetter] = useState<((view: string) => void) | null>(null);
+  // useRef avoids a re-render cycle when the view setter is first received from ItemEditor
+  const viewSetterRef = useRef<((view: string) => void) | null>(null);
   const [wizardState, setWizardState] = useState<WizardState>(buildWorkloadInitialState());
   const [isRunning, setIsRunning] = useState(false);
   const [isSchedulePaused, setIsSchedulePaused] = useState(false);
@@ -106,11 +338,15 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedEntityName, setSelectedEntityName] = useState<string | null>(null);
 
+  const updateWizard = useCallback(
+    (patch: Partial<WizardState>) => setWizardState((prev) => ({ ...prev, ...patch })),
+    [],
+  );
+
   async function loadItem(): Promise<void> {
     if (pageContext.itemObjectId && item && item.id === pageContext.itemObjectId) return;
     setIsLoading(true);
     try {
-      // Load raw payload (may be v1 or v2) and normalise to v2 immediately.
       const loaded = await getWorkloadItem<AnyConnectorItemDefinition>(
         workloadClient,
         pageContext.itemObjectId ?? "",
@@ -129,14 +365,11 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
   useEffect(() => { loadItem(); }, [pageContext, pathname]);
 
   useEffect(() => {
-    if (!isLoading && item && viewSetter) {
+    if (!isLoading && item && viewSetterRef.current) {
       const state = item.definition?.state;
-      viewSetter(state === "configured" || state === "paused" ? VIEWS.DASHBOARD : VIEWS.EMPTY);
+      viewSetterRef.current(state === "configured" || state === "paused" ? VIEWS.DASHBOARD : VIEWS.EMPTY);
     }
-  }, [isLoading, item, viewSetter]);
-
-  const updateWizard = (patch: Partial<WizardState>) =>
-    setWizardState((prev) => ({ ...prev, ...patch }));
+  }, [isLoading, item]);
 
   async function handleRunNow(): Promise<void> {
     if (!item) return;
@@ -155,25 +388,16 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
 
   /**
    * Builds and saves a MultiConnectorItemDefinition from the current wizard state.
-   *
-   * For each enabled connector the source, auth and entities are taken directly
-   * from the per-connector entry — no module-type branching is needed here.
-   * The connector registry drives type safety; adding a connector requires no
-   * change to this function.
    */
   async function handleActivate(): Promise<void> {
     if (!item) return;
     updateWizard({ isActivating: true });
     try {
-      // Recompute statuses before saving so the persisted definition reflects
-      // the current validation state.
       const refreshedConnectors = recomputeConnectorStatuses(wizardState.connectors);
 
       const definition: MultiConnectorItemDefinition = {
         schemaVersion: "2.0.0",
         state: "configured",
-        // Only enabled connectors participate in the persisted payload; disabled
-        // ones are not written so the backend stays connector-agnostic.
         connectors: refreshedConnectors,
         storage: {
           bronzeLakeHouseName:
@@ -203,232 +427,63 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
     }
   }
 
-  // ── Inner view components ─────────────────────────────────────
+  // ── Context value ─────────────────────────────────────────────
 
-  const EmptyViewWrapper = () => {
-    const { setCurrentView } = useViewNavigation();
-    return (
-      <ConnectorItemEmptyView
-        workloadClient={workloadClient}
-        item={item}
-        onConfigure={() => {
-          setWizardState(buildWorkloadInitialState());
-          setCurrentView(VIEWS.WIZARD);
-        }}
-      />
-    );
+  const ctxValue: ConnectorEditorCtxValue = {
+    workloadClient,
+    item,
+    setItem,
+    wizardState,
+    updateWizard,
+    setWizardState,
+    isLoading,
+    runs,
+    watermarks,
+    selectedRunId,
+    setSelectedRunId,
+    selectedEntityName,
+    setSelectedEntityName,
+    handleActivate,
   };
-
-  const WizardView = () => {
-    const { setCurrentView } = useViewNavigation();
-
-    const commonProps = {
-      wizardState,
-      onUpdate: updateWizard,
-      validationErrors: wizardState.validationErrors,
-    };
-
-    // Scoped workloads skip the CONNECTORS step — the locked connector is
-    // pre-enabled at initialisation and the user never sees the selection screen.
-    const effectiveStepOrder: WizardStep[] = WORKLOAD_CONFIG.skipConnectorStep
-      ? [WIZARD_STEPS.CONFIG, WIZARD_STEPS.STORAGE, WIZARD_STEPS.SCHEDULE, WIZARD_STEPS.REVIEW]
-      : WIZARD_STEP_ORDER;
-
-    const localNext = (step: WizardStep): WizardStep | null => {
-      const idx = effectiveStepOrder.indexOf(step);
-      return idx < effectiveStepOrder.length - 1 ? effectiveStepOrder[idx + 1] : null;
-    };
-    const localPrev = (step: WizardStep): WizardStep | null => {
-      const idx = effectiveStepOrder.indexOf(step);
-      return idx > 0 ? effectiveStepOrder[idx - 1] : null;
-    };
-
-    const isFirstStep = wizardState.step === effectiveStepOrder[0];
-    const isReviewStep = wizardState.step === WIZARD_STEPS.REVIEW;
-
-    const handleNext = () => {
-      const { isValid, errors } = validateStep(wizardState, wizardState.step);
-      if (!isValid) {
-        updateWizard({ validationErrors: errors });
-        return;
-      }
-      updateWizard({ validationErrors: {} });
-      const next = localNext(wizardState.step);
-      if (next) {
-        // Recompute connector statuses when leaving the CONFIG step so the
-        // review screen immediately shows accurate badges.
-        if (wizardState.step === WIZARD_STEPS.CONFIG) {
-          updateWizard({
-            step: next,
-            connectors: recomputeConnectorStatuses(wizardState.connectors),
-          });
-        } else {
-          updateWizard({ step: next });
-        }
-      }
-    };
-
-    const handlePrev = () => {
-      const prev = localPrev(wizardState.step);
-      if (prev) {
-        updateWizard({ step: prev });
-      } else {
-        setCurrentView(VIEWS.EMPTY);
-      }
-    };
-
-    const handleActivateAndNavigate = async () => {
-      await handleActivate();
-      setCurrentView(VIEWS.DASHBOARD);
-    };
-
-    const stepIndex = effectiveStepOrder.indexOf(wizardState.step);
-    const totalSteps = effectiveStepOrder.length;
-
-    const renderStep = () => {
-      switch (wizardState.step) {
-        case WIZARD_STEPS.CONNECTORS: return <WizardConnectorStep {...commonProps} />;
-        case WIZARD_STEPS.CONFIG:     return <WizardConfigStep    {...commonProps} />;
-        case WIZARD_STEPS.STORAGE:    return <WizardStorageStep   {...commonProps} />;
-        case WIZARD_STEPS.SCHEDULE:   return <WizardScheduleStep  {...commonProps} />;
-        case WIZARD_STEPS.REVIEW:     return (
-          <WizardReviewStep {...commonProps} onActivate={handleActivateAndNavigate} />
-        );
-        default: return null;
-      }
-    };
-
-    const hasEnabledConnector = wizardState.connectors.some((c) => c.enabled);
-
-    return (
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
-        {/* Step counter */}
-        <div style={{ padding: "8px 24px", color: "var(--colorNeutralForeground3)", fontSize: 12 }}>
-          {t("Wizard_StepCounter", "Step {{current}} of {{total}}", {
-            current: stepIndex + 1,
-            total: totalSteps,
-          })}
-        </div>
-
-        {/* Step content */}
-        <div style={{ flex: 1 }}>
-          {renderStep()}
-        </div>
-
-        {/* Navigation footer */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            padding: "16px 24px",
-            borderTop: "1px solid var(--colorNeutralStroke1)",
-            marginTop: 16,
-          }}
-        >
-          <Button appearance="secondary" onClick={handlePrev}>
-            {isFirstStep
-              ? t("Wizard_Nav_Cancel", "Cancel")
-              : t("Wizard_Nav_Previous", "Previous")}
-          </Button>
-
-          {!isReviewStep && (
-            <Button
-              appearance="primary"
-              onClick={handleNext}
-              disabled={isFirstStep && !hasEnabledConnector}
-            >
-              {t("Wizard_Nav_Next", "Next")}
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const DashboardWrapper = () => {
-    const { setCurrentView } = useViewNavigation();
-
-    return (
-      <ConnectorDashboard
-        runs={runs}
-        watermarks={watermarks}
-        isLoading={isLoading}
-        onRunClick={(runId) => {
-          setSelectedRunId(runId);
-          setCurrentView(VIEWS.RUN_DETAIL);
-        }}
-        onEntityClick={(entityName) => {
-          setSelectedEntityName(entityName);
-          setCurrentView(VIEWS.ENTITY_DETAIL);
-        }}
-      />
-    );
-  };
-
-  // ── View registration ─────────────────────────────────────────
-
-  const views = [
-    { name: VIEWS.EMPTY,    component: <EmptyViewWrapper /> },
-    {
-      name: VIEWS.WIZARD,
-      component: (
-        <ConnectorErrorBoundary label="wizard">
-          <WizardView />
-        </ConnectorErrorBoundary>
-      ),
-    },
-    {
-      name: VIEWS.DASHBOARD,
-      component: (
-        <ConnectorErrorBoundary label="dashboard">
-          <DashboardWrapper />
-        </ConnectorErrorBoundary>
-      ),
-    },
-    {
-      name: VIEWS.RUN_DETAIL,
-      component: <RunDetailView runs={runs} runId={selectedRunId} />,
-      isDetailView: true,
-    },
-    {
-      name: VIEWS.ENTITY_DETAIL,
-      component: <EntityDetailView watermarks={watermarks} entityName={selectedEntityName} />,
-      isDetailView: true,
-    },
-  ];
 
   // ── Notifications ─────────────────────────────────────────────
 
   const notifications: RegisteredNotification[] = [];
 
   return (
-    <ItemEditor
-      isLoading={isLoading}
-      loadingMessage={t("ConnectorItemEditor_Loading", "Loading connector...")}
-      ribbon={(context) => (
-        <ConnectorItemRibbon
-          workloadClient={workloadClient}
-          viewContext={context}
-          connectorState={item?.definition?.state ?? "empty"}
-          isRunning={isRunning}
-          isSchedulePaused={isSchedulePaused}
-          onRunNow={handleRunNow}
-          onPauseToggle={handlePauseToggle}
-          onReconfigure={() => {
-            setWizardState(buildWorkloadInitialState());
-            viewSetter?.(VIEWS.WIZARD);
-          }}
-          onOpenSettings={async () => {
-            if (item) {
-              const res = await getWorkloadItem(workloadClient, item.id);
-              await callOpenSettings(workloadClient, (res as any).item, "About");
-            }
-          }}
-        />
-      )}
-      messageBar={notifications}
-      views={views}
-      viewSetter={(fn) => { if (!viewSetter) setViewSetter(() => fn); }}
-    />
+    <ConnectorEditorCtx.Provider value={ctxValue}>
+      <ItemEditor
+        isLoading={isLoading}
+        loadingMessage={t("ConnectorItemEditor_Loading", "Loading connector...")}
+        ribbon={(context) => (
+          <ConnectorItemRibbon
+            workloadClient={workloadClient}
+            viewContext={context}
+            connectorState={item?.definition?.state ?? "empty"}
+            isRunning={isRunning}
+            isSchedulePaused={isSchedulePaused}
+            onRunNow={handleRunNow}
+            onPauseToggle={handlePauseToggle}
+            onReconfigure={() => {
+              setWizardState(
+                item?.definition
+                  ? buildWizardStateFromDefinition(item.definition)
+                  : buildWorkloadInitialState(),
+              );
+              viewSetterRef.current?.(VIEWS.WIZARD);
+            }}
+            onOpenSettings={async () => {
+              if (item) {
+                const res = await getWorkloadItem(workloadClient, item.id);
+                await callOpenSettings(workloadClient, (res as any).item, "About");
+              }
+            }}
+          />
+        )}
+        messageBar={notifications}
+        views={STATIC_VIEWS}
+        viewSetter={(fn) => { viewSetterRef.current = fn; }}
+      />
+    </ConnectorEditorCtx.Provider>
   );
 }

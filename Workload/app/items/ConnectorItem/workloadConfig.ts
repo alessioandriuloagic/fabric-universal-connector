@@ -18,6 +18,7 @@ import {
 } from "./wizard/wizardState";
 import { buildDefaultConnectors } from "./wizard/connectorRegistry";
 import { expandCrmEntities } from "./wizard/crmCatalog";
+import { MultiConnectorItemDefinition } from "./ConnectorItemDefinition";
 
 export interface WorkloadConfig {
   workloadId: string;
@@ -115,5 +116,36 @@ export function buildWorkloadInitialState(): WizardState {
     ...INITIAL_WIZARD_STATE,
     step: WIZARD_STEPS.CONFIG,
     connectors: connectors as WizardState["connectors"],
+  };
+}
+
+/**
+ * Restores wizard state from an existing saved item definition so the user
+ * can edit their configuration without losing previously entered values.
+ *
+ * Disabled connectors are taken from buildDefaultConnectors() (default/empty),
+ * while enabled connectors are populated from the saved definition.
+ */
+export function buildWizardStateFromDefinition(
+  definition: MultiConnectorItemDefinition,
+): WizardState {
+  const base = buildWorkloadInitialState();
+
+  // Merge saved connector configs into the full default list so that connectors
+  // not present in the definition (disabled) still appear in the wizard UI.
+  const connectors = buildDefaultConnectors().map((defaultConn) => {
+    const saved = definition.connectors.find(
+      (c) => c.connectorType === defaultConn.connectorType,
+    );
+    return saved ?? defaultConn;
+  }) as WizardState["connectors"];
+
+  return {
+    ...base,
+    connectors,
+    storage: { ...(definition.storage ?? base.storage) },
+    schedule: { ...(definition.scheduling ?? base.schedule) },
+    validationErrors: {},
+    isActivating: false,
   };
 }
