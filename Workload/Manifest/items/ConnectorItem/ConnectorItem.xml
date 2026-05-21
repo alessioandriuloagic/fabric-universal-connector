@@ -2,5 +2,12 @@
 <ItemManifestConfiguration SchemaVersion="2.0.0">
   <Item TypeName="{{WORKLOAD_NAME}}.Connector" Category="Data">
     <Workload WorkloadName="{{WORKLOAD_NAME}}" />
+    <JobScheduler>
+      <OnDemandJobDeduplicateOptions>None</OnDemandJobDeduplicateOptions>
+      <ScheduledJobDeduplicateOptions>None</ScheduledJobDeduplicateOptions>
+      <ItemJobTypes>
+        <ItemJobType Name="{{WORKLOAD_NAME}}.Connector.ConnectorIngestionJob" />
+      </ItemJobTypes>
+    </JobScheduler>
   </Item>
 </ItemManifestConfiguration>

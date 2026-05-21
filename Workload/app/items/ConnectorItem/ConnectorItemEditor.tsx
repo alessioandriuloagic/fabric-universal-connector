@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Button, MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-components";
-import { WorkloadClientAPI } from "@ms-fabric/workload-client";
+import { WorkloadClientAPI, NotificationType, NotificationToastDuration } from "@ms-fabric/workload-client";
+import { callNotificationOpen } from "../../controller/NotificationController";
 import { PageProps, ContextProps } from "../../App";
 import {
   ItemWithDefinition,
@@ -16,7 +17,7 @@ import {
   RegisteredNotification,
   RegisteredView,
 } from "../../components/ItemEditor";
-import { JobSchedulerClient } from "../../clients/JobSchedulerClient";
+
 import {
   MultiConnectorItemDefinition,
   AnyConnectorItemDefinition,
@@ -388,11 +389,44 @@ export function ConnectorItemEditor({ workloadClient }: PageProps) {
   }, [isLoading, item]);
 
   async function handleRunNow(): Promise<void> {
-    if (!item) return;
+    if (!item) {
+      console.warn("[RunNow] item not loaded");
+      return;
+    }
     setIsRunning(true);
     try {
-      const scheduler = new JobSchedulerClient(workloadClient);
-      await scheduler.runOnDemandItemJob(item.workspaceId, item.id, "ConnectorIngestionJob");
+      const jobType = `${process.env.WORKLOAD_NAME}.Connector.ConnectorIngestionJob`;
+      console.log("[RunNow] dispatching job", jobType, "item:", item.id);
+      const instance = await workloadClient.itemSchedule.runItemJob({
+        itemObjectId: item.id,
+        itemJobType: jobType,
+        payload: {},
+      });
+      console.log("[RunNow] dispatched:", instance);
+      try {
+        await callNotificationOpen(
+          workloadClient,
+          "Run started",
+          "Ingestion job dispatched successfully.",
+          NotificationType.Success,
+          NotificationToastDuration.Medium,
+        );
+      } catch (notifErr) {
+        console.warn("[RunNow] notification failed:", notifErr);
+      }
+    } catch (err: any) {
+      console.error("[RunNow] failed:", err);
+      try {
+        await callNotificationOpen(
+          workloadClient,
+          "Run failed",
+          err?.message ?? "Failed to dispatch ingestion job. Check browser console for details.",
+          NotificationType.Error,
+          NotificationToastDuration.Long,
+        );
+      } catch (notifErr) {
+        console.warn("[RunNow] error notification failed:", notifErr);
+      }
     } finally {
       setIsRunning(false);
     }

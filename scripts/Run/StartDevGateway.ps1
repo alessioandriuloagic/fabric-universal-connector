@@ -54,15 +54,45 @@ $devWorkspaceId = $config.WorkspaceGuid
 $logLevel = "Information"
 
 
+# Fabric dev-mode relay has a short TTL (~5 min). Wrap the DevGateway process
+# in a restart loop so the relay is always active for the entire dev session.
+# Exit codes:
+#   0 = relay went offline (transient) -> restart
+#   1 = configuration / auth error     -> stop
+function Start-DevGatewayLoop {
+    param([scriptblock]$LaunchBlock)
+    $attempt = 0
+    $keepRunning = $true
+    while ($keepRunning) {
+        $attempt++
+        if ($attempt -gt 1) {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] DevGateway relay expired - restarting (attempt $attempt)..." -ForegroundColor Yellow
+        }
+        & $LaunchBlock
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] DevGateway exited with error code $exitCode. Stopping." -ForegroundColor Red
+            $keepRunning = $false
+            exit $exitCode
+        }
+        # exit code 0 = relay offline -> loop and re-register immediately
+    }
+}
+
 if($runningOnWindows) {
     if ($InteractiveLogin -and [string]::IsNullOrEmpty($token)) {
-        # Use interactive mode only when explicitly requested and no token available
-        Write-Host "Starting DevGateway in interactive mode..." -ForegroundColor Green
-        & $fileExe -LogLevel $logLevel -DevMode:LocalConfigFilePath $CONFIGURATIONFILE
+        # Use interactive mode only when explicitly requested and no token available.
+        # MSAL token cache means the browser only opens on the FIRST start.
+        Write-Host "Starting DevGateway in interactive mode (auto-restart on relay expiry)..." -ForegroundColor Green
+        Start-DevGatewayLoop -LaunchBlock {
+            & $fileExe -LogLevel $logLevel -DevMode:LocalConfigFilePath $CONFIGURATIONFILE
+        }
     } else {
         # Use token-based authentication
-        Write-Host "Starting DevGateway with token-based authentication..." -ForegroundColor Green
-        & $fileExe -LogLevel $logLevel -DevMode:UserAuthorizationToken $token -DevMode:ManifestPackageFilePath $manifestPackageFilePath -DevMode:WorkspaceGuid $devWorkspaceId
+        Write-Host "Starting DevGateway with token-based authentication (auto-restart on relay expiry)..." -ForegroundColor Green
+        Start-DevGatewayLoop -LaunchBlock {
+            & $fileExe -LogLevel $logLevel -DevMode:UserAuthorizationToken $token -DevMode:ManifestPackageFilePath $manifestPackageFilePath -DevMode:WorkspaceGuid $devWorkspaceId
+        }
     }
 } else {
     # Check if we're on ARM64 Mac and need x64 runtime
@@ -71,7 +101,9 @@ if($runningOnWindows) {
         $x64DotnetPath = "/usr/local/share/dotnet/x64/dotnet"
         if (Test-Path $x64DotnetPath) {
             Write-Host "Using x64 .NET runtime for ARM64 Mac compatibility..." -ForegroundColor Yellow
-            & $x64DotnetPath $fileExe -LogLevel $logLevel -DevMode:UserAuthorizationToken $token -DevMode:ManifestPackageFilePath $manifestPackageFilePath -DevMode:WorkspaceGuid $devWorkspaceId
+            Start-DevGatewayLoop -LaunchBlock {
+                & $x64DotnetPath $fileExe -LogLevel $logLevel -DevMode:UserAuthorizationToken $token -DevMode:ManifestPackageFilePath $manifestPackageFilePath -DevMode:WorkspaceGuid $devWorkspaceId
+            }
         } else {
             Write-Host "ERROR: This application requires x64 .NET runtime, but you're on ARM64 Mac." -ForegroundColor Red
             Write-Host "Please install x64 .NET 8 Runtime from: https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Red
@@ -79,6 +111,8 @@ if($runningOnWindows) {
             exit 1
         }
     } else {
-        & dotnet $fileExe -LogLevel $logLevel -DevMode:UserAuthorizationToken $token -DevMode:ManifestPackageFilePath $manifestPackageFilePath -DevMode:WorkspaceGuid $devWorkspaceId
+        Start-DevGatewayLoop -LaunchBlock {
+            & dotnet $fileExe -LogLevel $logLevel -DevMode:UserAuthorizationToken $token -DevMode:ManifestPackageFilePath $manifestPackageFilePath -DevMode:WorkspaceGuid $devWorkspaceId
+        }
     }
 }

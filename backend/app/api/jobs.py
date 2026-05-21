@@ -124,6 +124,11 @@ async def start_job(
     Fabric calls this endpoint to start a job instance.
     We acknowledge immediately (IN_PROGRESS) and run the job in the background.
     """
+    log.info(
+        "[start_job] RECEIVED job_instance_id=%s job_type=%s item=%s workspace=%s workload=%s",
+        job_instance_id, context.job_type, context.item_object_id,
+        context.workspace_object_id, workload_id.value,
+    )
     new_record = JobRecord(
         job_instance_id=job_instance_id,
         item_object_id=context.item_object_id,
@@ -134,12 +139,13 @@ async def start_job(
     existing_or_new, created = await job_tracker.get_or_create(job_instance_id, new_record)
 
     if not created:
+        log.info("[start_job] duplicate job_instance_id=%s status=%s", job_instance_id, existing_or_new.status)
         if existing_or_new.status in (JobStatus.IN_PROGRESS, JobStatus.NOT_STARTED):
             return StartJobResponse(status=JobStatus.IN_PROGRESS)
         return StartJobResponse(status=existing_or_new.status)
 
     background_tasks.add_task(_execute_job, job_instance_id, context, token, workload_id)
-    log.info("Job %s accepted (item=%s, workload=%s)", job_instance_id, context.item_object_id, workload_id.value)
+    log.info("[start_job] Job %s accepted (item=%s, workload=%s) — background task queued", job_instance_id, context.item_object_id, workload_id.value)
     return StartJobResponse(status=JobStatus.IN_PROGRESS)
 
 
@@ -193,7 +199,7 @@ async def _execute_job(
     Errors are caught and reflected in job status — never propagated upward.
     """
     await job_tracker.mark_started(job_instance_id)
-    log.info("Background job starting: %s", job_instance_id)
+    log.info("[_execute_job] START job=%s item=%s workspace=%s", job_instance_id, context.item_object_id, context.workspace_object_id)
 
     try:
         from app.services.fabric_client import load_item_definition
@@ -205,6 +211,7 @@ async def _execute_job(
         )
         from app.services.auth_service import resolve_credentials
 
+        log.info("[_execute_job] Loading item definition from Fabric...")
         raw_def = await load_item_definition(
             workspace_id=context.workspace_object_id,
             item_id=context.item_object_id,
@@ -213,12 +220,15 @@ async def _execute_job(
 
         module_type = raw_def.get("moduleType")
         state = raw_def.get("state")
+        log.info("[_execute_job] item definition loaded: moduleType=%s state=%s keys=%s",
+                 module_type, state, list(raw_def.keys()))
 
         if state != ConnectorState.CONFIGURED.value:
             raise ConfigValidationError(
                 f"Connector state is '{state}', expected 'configured'"
             )
 
+        log.info("[_execute_job] routing to connector: moduleType=%s", module_type)
         if module_type == "crm":
             config = CrmConnectorItemDefinition.model_validate(raw_def)
             creds = await resolve_credentials(config.authentication, fabric_token)
@@ -266,9 +276,12 @@ async def _execute_job(
 
         # Apply workload entity scope (restricts ingestion to workload-allowed entities).
         allowed = _get_entity_scope(workload_id)
+        log.info("[_execute_job] entity scope: workload=%s allowed=%s", workload_id.value,
+                 list(allowed) if allowed is not None else "<unrestricted>")
         if allowed is not None:
             connector.set_entity_scope(allowed)
 
+        log.info("[_execute_job] running connector...")
         result = await connector.run()
 
         if result.status == "success":
@@ -301,7 +314,8 @@ async def _execute_job(
 
     except (ConfigLoadError, ConfigValidationError, ConnectorFatalError) as exc:
         error_code = getattr(exc, "error_code", "FATAL_ERROR")
-        log.error("Job %s fatal error (%s): %s", job_instance_id, error_code, exc)
+        log.error("[_execute_job] FATAL ERROR job=%s type=%s error_code=%s msg=%s",
+                  job_instance_id, type(exc).__name__, error_code, exc, exc_info=True)
         await job_tracker.update_status(
             job_instance_id,
             status=JobStatus.FAILED,
@@ -310,7 +324,7 @@ async def _execute_job(
         )
 
     except Exception as exc:
-        log.exception("Job %s unexpected error: %s", job_instance_id, exc)
+        log.exception("[_execute_job] UNEXPECTED ERROR job=%s: %s", job_instance_id, exc)
         await job_tracker.update_status(
             job_instance_id,
             status=JobStatus.FAILED,
