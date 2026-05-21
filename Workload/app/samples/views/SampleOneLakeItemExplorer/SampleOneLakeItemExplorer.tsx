@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Stack } from "@fluentui/react";
+
 import {
   Button,
 } from "@fluentui/react-components";
@@ -90,7 +90,7 @@ export function OneLakeItemExplorerComponent(props: OneLakeItemExplorerComponent
 
   return (
     <>
-      <Stack className={`explorer ${isExplorerVisible ? "" : "hidden-explorer"}`} style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+      <div className={`explorer ${isExplorerVisible ? "" : "hidden-explorer"}`} style={{ height: "100%", display: "flex", flexDirection: "column" }}>
         <div className={`top ${isExplorerVisible ? "" : "vertical-text"}`}>
           {!isExplorerVisible && (
             <Button onClick={toggleExplorer} appearance="subtle" icon={<ChevronDoubleRight20Regular />}></Button>
@@ -120,7 +120,7 @@ export function OneLakeItemExplorerComponent(props: OneLakeItemExplorerComponent
             />
           </div>
         )}
-      </Stack>
+      </div>
     </>
   );
 }

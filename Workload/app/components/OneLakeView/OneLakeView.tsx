@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Stack } from "@fluentui/react";
+
 import {
   Tree,
   TreeItem,
@@ -370,7 +370,7 @@ export function OneLakeView(props: OneLakeViewProps) {
   if (!selectedItem) {
     return (
       <div className="onelake-view__container">
-        <Stack className="onelake-view__empty" verticalAlign="center" horizontalAlign="center" tokens={{ childrenGap: 5 }} style={{ flex: 1 }}>
+        <div className="onelake-view__empty" style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: "5px", flex: 1 }}>
           <Image src="/assets/components/OneLakeView/EmptyIcon.svg" />
           <span className="add">{t("OneLakeView_SelectItem_Text", "Select an item")}</span>
           {props.config?.allowItemSelection && (
@@ -380,7 +380,7 @@ export function OneLakeView(props: OneLakeViewProps) {
               </Button>
             </Tooltip>
           )}
-        </Stack>
+        </div>
       </div>
     );
   }

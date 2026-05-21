@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Stack } from "@fluentui/react";
+
 import { useDispatch, useSelector } from "react-redux";
 import {
   Divider,
@@ -66,11 +66,7 @@ export function UIComponentsExample(props: TabContentProps) {
       </Divider>
       <div className="section">
         {/* Label and Input */}
-        <Stack
-          horizontal
-          tokens={{ childrenGap: 10 }}
-          style={{ padding: "10px" }}
-        >
+        <div style={{ display: "flex", flexDirection: "row", gap: "10px", padding: "10px" }}>
           <Label htmlFor={inputId}>Sample input</Label>
           <Input
             id={inputId}
@@ -79,13 +75,9 @@ export function UIComponentsExample(props: TabContentProps) {
             value={sampleInput}
             onChange={(e) => dispatch(setSampleInput(e.target.value))}
           />
-        </Stack>
+        </div>
         {/* Buttons */}
-        <Stack
-          horizontal
-          tokens={{ childrenGap: 10 }}
-          style={{ padding: "10px" }}
-        >
+        <div style={{ display: "flex", flexDirection: "row", gap: "10px", padding: "10px" }}>
           <Button icon={<Save24Regular />} appearance="primary">
             Primary
           </Button>
@@ -98,7 +90,7 @@ export function UIComponentsExample(props: TabContentProps) {
           <Button icon={<Save24Regular />} appearance="subtle">
             Subtle
           </Button>
-        </Stack>
+        </div>
         {/* Checkbox, Switch and Radio */}
         <Checkbox
           title="my title"

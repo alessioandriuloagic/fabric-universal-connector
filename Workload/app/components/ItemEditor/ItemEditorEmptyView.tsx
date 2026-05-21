@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { Stack, IStackTokens } from "@fluentui/react";
+
 import { Text, Button } from "@fluentui/react-components";
 import { ItemEditorDefaultView } from "./ItemEditorDefaultView";
 import "./ItemEditor.scss"
@@ -112,41 +112,34 @@ export function ItemEditorEmptyView({
   maxWidth = 600
 }: ItemEditorEmptyViewProps) {
   
-  // Stack tokens for consistent spacing using Fabric design tokens
-  const containerTokens: IStackTokens = { childrenGap: 24 };
-  const headerTokens: IStackTokens = { childrenGap: 8 };
-
   // Build the empty state content
   const emptyStateContent = (
-    <Stack 
+    <div 
       className={`item-editor-view-empty ${className}`.trim()}
-      horizontalAlign="center" 
+      style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
       role="main"
       aria-label="Empty state"
     >
-      <Stack 
+      <div 
         className="empty-state-content" 
-        tokens={containerTokens} 
-        horizontalAlign="center"
-        style={{ maxWidth: `${maxWidth}px` }}
+        style={{ display: "flex", flexDirection: "column", gap: "24px", alignItems: "center", maxWidth: `${maxWidth}px` }}
       >
         {/* Illustration/Image Section */}
         {imageSrc && (
-          <Stack.Item>
+          <div>
             <img
               src={imageSrc}
               alt={imageAlt}
               className="empty-state-image"
               aria-hidden={imageAlt ? "false" : "true"}
             />
-          </Stack.Item>
+          </div>
         )}
 
         {/* Text Content Section */}
-        <Stack 
+        <div 
           className="empty-state-text-container" 
-          tokens={headerTokens} 
-          horizontalAlign="center"
+          style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center" }}
         >
           <div className="empty-state-header">
             <h2>{title}</h2>
@@ -154,16 +147,16 @@ export function ItemEditorEmptyView({
               {description}
             </Text>
           </div>
-        </Stack>
+        </div>
 
         {/* Tasks/Actions Section or Custom Content */}
         {customContent ? (
-          <Stack.Item>
+          <div>
             {customContent}
-          </Stack.Item>
+          </div>
         ) : tasks.length === 1 ? (
           // Single task - use button pattern
-          <Stack.Item>
+          <div>
             <Button
               appearance="primary"
               size="large"
@@ -176,7 +169,7 @@ export function ItemEditorEmptyView({
             >
               {tasks[0].label}
             </Button>
-          </Stack.Item>
+          </div>
         ) : tasks.length > 1 ? (
           // Multiple tasks - use tile card layout
           <div className="default-view-inner-container" role="list">
@@ -221,8 +214,8 @@ export function ItemEditorEmptyView({
             ))}
           </div>
         ) : null}
-      </Stack>
-    </Stack>
+      </div>
+    </div>
   );
 
   // Use ItemEditorView with empty state in the center

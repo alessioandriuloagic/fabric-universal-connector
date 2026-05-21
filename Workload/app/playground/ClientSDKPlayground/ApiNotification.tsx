@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Stack } from "@fluentui/react";
+
 import {
     Button,
     Field,
@@ -78,7 +78,7 @@ export function ApiNotification(props: TabContentProps) {
                         onChange={(e) => dispatch(setMessage(e.target.value))}
                     />
                 </Field>
-                <Stack horizontal tokens={{ childrenGap: 10 }}>
+                <div style={{ display: "flex", flexDirection: "row", gap: "10px" }}>
                     <Button
                         icon={<AlertOn24Regular />}
                         appearance="primary"
@@ -89,7 +89,7 @@ export function ApiNotification(props: TabContentProps) {
                     <Button onClick={() => onCallNotificationHide()}>
                         Hide Notification
                     </Button>
-                </Stack>
+                </div>
             </div>
         </span>
     );

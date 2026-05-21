@@ -1,6 +1,6 @@
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Stack } from "@fluentui/react";
+
 import {
   Button,
   Field,
@@ -156,7 +156,7 @@ export function ApiVariableLibrary(props: TabContentProps) {
       
       <Divider alignContent="start">Item Selection</Divider>
       <div className="section">
-        <Stack horizontal tokens={{ childrenGap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "row", gap: "10px" }}>
           <Button
             icon={<DatabaseSearch20Regular />}
             appearance="primary"
@@ -165,7 +165,7 @@ export function ApiVariableLibrary(props: TabContentProps) {
           >
             Select Item
           </Button>
-        </Stack>
+        </div>
         
         {selectedItem && (
           <>
@@ -260,7 +260,7 @@ export function ApiVariableLibrary(props: TabContentProps) {
           </Field>
         )}
 
-        <Stack horizontal tokens={{ childrenGap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "row", gap: "10px" }}>
           <Button
             icon={<DatabaseSearch20Regular />}
             appearance="primary"
@@ -270,7 +270,7 @@ export function ApiVariableLibrary(props: TabContentProps) {
           >
             Open Variable Picker
           </Button>
-        </Stack>
+        </div>
         
         <Field 
           label="Selected Variable Reference" 
@@ -291,7 +291,7 @@ export function ApiVariableLibrary(props: TabContentProps) {
 
       <Divider alignContent="start">Variable Resolution</Divider>
       <div className="section">
-        <Stack horizontal tokens={{ childrenGap: 10 }} style={{ marginBottom: '12px' }}>
+        <div style={{ display: "flex", flexDirection: "row", gap: "10px", marginBottom: '12px' }}>
           <Button
             icon={<Search24Regular />}
             appearance="primary"
@@ -313,7 +313,7 @@ export function ApiVariableLibrary(props: TabContentProps) {
               {!selectedVariableReference ? 'Variable reference required' : 'Item selection required'}
             </Text>
           )}
-        </Stack>
+        </div>
 
         <Field 
           label="Resolved Value" 

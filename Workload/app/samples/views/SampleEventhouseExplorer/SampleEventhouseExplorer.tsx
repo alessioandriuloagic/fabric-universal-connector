@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { PageProps } from "../../../App";
-import { Stack } from "@fluentui/react";
+
 import {
     Button,
     Combobox,
@@ -128,7 +128,7 @@ export function EventhouseExplorerComponent({ workloadClient }: PageProps) {
     <span>
         <Divider alignContent="start">Selected Eventhouse Details</Divider>
         <div className="section">
-            <Stack horizontal>
+            <div style={{ display: "flex", flexDirection: "row" }}>
                 <Field label="Eventhouse" orientation="horizontal" className="field">
                     <Input
                         size="small"
@@ -143,7 +143,7 @@ export function EventhouseExplorerComponent({ workloadClient }: PageProps) {
                     appearance="primary"
                     onClick={onLoadDatahubForEventhouse}
                 />
-            </Stack>
+            </div>
             <Field label="Eventhouse ID" orientation="horizontal" className="field">
                 <Input size="small" placeholder="Eventhouse ID" value={selectedEventhouse ? selectedEventhouse.id : ""} />
             </Field>
